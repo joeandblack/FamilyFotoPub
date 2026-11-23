@@ -24,7 +24,9 @@ the automatic checks; everything marked **(manual)** needs a person at the VM.
 6. Models: `buffalo_l.zip` and `20180402-114759-vggface2.pt`, checked against
    `face_detect/config/research-models.json`.
 7. `python installer/macos/build_release.py assemble --recipe recipe.json --output release/`
-   (recipe format in the module docstring), then `audit --release release/`. Fix every finding;
+   (recipe format in the module docstring), then `audit --release release/`. The agreement
+   shown before anything is downloaded is `installer/legal/agreement.txt` unless the recipe names
+   another; check it still matches what the release bundles. Fix every finding;
    nothing is published while the audit fails. Set the recipe's `minimum_os` to the build Mac's
    macOS version (for example `27.2`): the audit names any bundled program that needs more.
 8. `build_launcher.py engine --manifest release/manifest.json --payload-root release/payload --output engine.zip`.

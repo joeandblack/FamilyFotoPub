@@ -44,6 +44,7 @@ def test_manifest_excludes_private_and_test_files():
     assert 'config/local.json' not in names
     assert 'installer/macos/install.sh' in names
     assert 'web/lucide-LICENSE.txt' in names
+    assert 'LICENSE' in names  # FamilyFoto's GPL-3.0 text ships with every release
     # Every backup copies these from the installation (app/backup/handover.py), so a release
     # installation without them could not finish a backup.
     from app.backup import handover

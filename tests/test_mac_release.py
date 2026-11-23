@@ -195,6 +195,28 @@ def test_assembled_release_passes_the_audit(tmp_path, monkeypatch):
     assert {'model-insightface', 'model-facenet', 'lock-insightface', 'lock-facenet'} <= people
 
 
+def test_release_uses_the_repository_terms_unless_the_recipe_names_others(tmp_path, monkeypatch):
+    path = recipe(tmp_path, monkeypatch)
+    doc = json.loads(path.read_text())
+    del doc['agreement']
+    path.write_text(json.dumps(doc))
+    manifest = build_release.assemble(path, tmp_path / 'release')
+    shipped = tmp_path / 'release/payload' / manifest.document['agreement_path']
+    assert shipped.read_bytes() == (ROOT / 'installer/legal/agreement.txt').read_bytes()
+    assert manifest.document['agreement_sha256'] == build_release.file_sha256(shipped)
+    build_release.audit(manifest, tmp_path / 'release/payload')
+
+
+def test_terms_cover_what_a_release_bundles():
+    text = (ROOT / 'installer/legal/agreement.txt').read_text(encoding='utf-8')
+    assert text.startswith('FamilyFoto Terms and Third-Party Notices\n')
+    for required in ('GPL-3.0', 'WITHOUT ANY WARRANTY', 'Python Software Foundation', 'PostgreSQL License',
+                     'FFmpeg', 'x264', 'LGPL', 'corresponding source', 'buffalo_l', 'VGGFace2',
+                     'NON-COMMERCIAL RESEARCH USE ONLY', 'https://github.com/joeandblack/FamilyFotoPub/releases'):
+        assert required in text, required
+    assert all(ord(c) < 128 for c in text)  # plain ASCII: shows the same in every setup window
+
+
 def test_missing_locked_wheel_is_refused_at_assembly(tmp_path, monkeypatch):
     path = recipe(tmp_path, monkeypatch)
     next((tmp_path / 'wheelhouse').glob('facenet*.whl')).unlink()

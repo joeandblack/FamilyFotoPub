@@ -1,5 +1,5 @@
 {
-  "files": ["pyproject.toml", "requirements.txt", "requirements-faces-windows.txt", "README.md", "config/example.json"],
+  "files": ["LICENSE", "pyproject.toml", "requirements.txt", "requirements-faces-windows.txt", "README.md", "config/example.json"],
   "trees": {
     "app": [".py"],
     "face_detect": [".py", ".json", ".sql", ".html", ".css", ".js", ".mjs", ".txt", ".md"],

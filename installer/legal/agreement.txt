@@ -1,0 +1,83 @@
+FamilyFoto Terms and Third-Party Notices
+
+Please read this before installing. It says what FamilyFoto Setup installs, under which terms,
+and what you accept by installing. It is not legal advice.
+
+1. FamilyFoto
+
+FamilyFoto is free software: you can redistribute it and/or modify it under the terms of the
+GNU General Public License, version 3 (GPL-3.0), as published by the Free Software Foundation.
+The full licence is in the LICENSE file of the installed application and at
+https://www.gnu.org/licenses/gpl-3.0.html. Its source code is at
+https://github.com/joeandblack/FamilyFotoPub.
+
+FamilyFoto is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. To the extent
+permitted by law, the copyright holders are not liable for any damages arising from its use,
+including loss of photos, videos or other data. See sections 15 to 17 of the GPL-3.0.
+
+FamilyFoto is pre-release software. Keep your original photos and videos, and make and verify
+backups.
+
+2. What is installed
+
+FamilyFoto Setup installs the FamilyFoto application and, inside its installation folder:
+- a private Python 3.12 runtime and the Python libraries FamilyFoto uses,
+- PostgreSQL 17, the database that holds the catalog,
+- FFmpeg, which converts and reads videos,
+- the setup window,
+- and, only if you include People, face-recognition libraries and face models (section 4).
+
+Each component remains under its own licence. The release manifest lists every component with
+its licence, and the licence texts are installed with the components (for PostgreSQL and FFmpeg,
+under share/licenses in their folders).
+
+3. Third-party licences of note
+
+- Python: Python Software Foundation License Version 2 (PSF-2.0).
+- PostgreSQL: the PostgreSQL License.
+- FFmpeg: GNU GPL version 3 or later, as built for this release (it includes x264 and x265,
+  which are under the GPL version 2 or later).
+- psycopg (the database driver): GNU LGPL version 3. You may replace it with a compatible
+  version of your own.
+- Other Python libraries, such as FastAPI, Uvicorn, Pillow, pillow-heif, httpx, cryptography,
+  NumPy and SciPy: permissive licences (MIT, BSD, Apache-2.0 and similar), as listed in the
+  release manifest.
+- Web interface: Lucide icons (ISC), daisyUI (MIT) and Cropper.js (MIT).
+
+Source code. The complete corresponding source code for the GPL and LGPL programs in this
+release, including FFmpeg and the libraries it is built with, is published with this release on
+https://github.com/joeandblack/FamilyFotoPub/releases, together with the build recipes used.
+
+4. People (optional face recognition)
+
+People is installed only if you include it and accept its model terms in the setup window.
+Without People, FamilyFoto works fully, and people saved in a restored library stay viewable.
+
+The face models People uses are not covered by FamilyFoto's licence:
+- InsightFace "buffalo_l" models: provided by InsightFace for NON-COMMERCIAL RESEARCH USE ONLY.
+  The InsightFace library code is under the MIT License, but these model terms apply separately.
+  See https://github.com/deepinsight/insightface.
+- FaceNet (InceptionResnetV1, VGGFace2) weights: the facenet-pytorch code is under the MIT
+  License; the weights, trained on the VGGFace2 dataset, are for NON-COMMERCIAL RESEARCH USE
+  ONLY. See https://github.com/timesler/facenet-pytorch.
+
+By including People you confirm that you will use these models only as their terms allow.
+FamilyFoto cannot judge whether your use, including private family use, is allowed. If you are
+unsure, do not include People, or ask the models' owners.
+
+5. Downloads and your data
+
+Setup downloads FamilyFoto and the components above from FamilyFoto's GitHub releases and checks
+every file against the checksum recorded for this release; an offline disk image carries them
+instead. After setup, FamilyFoto runs on your computer: your photos, videos and catalog stay
+there, and FamilyFoto does not send them, or reports about them, to the FamilyFoto developers or
+anyone else. Face recognition runs locally and never downloads anything. Anyone you give an
+account to, or who can reach FamilyFoto on your network, can see what that account allows.
+
+6. Acceptance
+
+By selecting "I accept" and installing, you confirm that you have read these terms, that you
+accept the licence of each component above, and, if you include People, the model terms in
+section 4. You install for yourself, on a computer you control. If you do not accept, quit
+FamilyFoto Setup: nothing has been installed.

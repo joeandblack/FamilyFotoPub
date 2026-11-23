@@ -8,7 +8,7 @@
 The recipe names local, already-built inputs; nothing here downloads or publishes:
 
   {"release_id": "2026.12.1", "source_commit": "<40 hex>", "minimum_os": "27.0",
-   "agreement": "legal/agreement.html",
+   "agreement": "agreement.txt",            (optional; default installer/legal/agreement.txt)
    "application": "FamilyFoto-2026.12.1.zip",                 (installer/release.py build)
    "runtimes": {"python": "python.zip", "postgres": "postgres.zip",
                 "ffmpeg": "ffmpeg.zip", "setup-window": "setup-window.zip"},
@@ -46,6 +46,7 @@ PLATFORM = 'macos-arm64'
 CORE_LOCKS = ('core', 'password', 'people-view')
 PEOPLE_LOCKS = ('insightface', 'facenet')
 MODELS = json.loads((ROOT / 'face_detect/config/research-models.json').read_text(encoding='utf-8'))
+AGREEMENT = ROOT / 'installer/legal/agreement.txt'
 
 
 def model_digest(provider):
@@ -161,7 +162,8 @@ def assemble(recipe_path, output):
         add('model-' + provider, source, f'models/{provider}/{source.name}', 'people',
             licenses.get('model-' + provider, []), model_provider=provider,
             model_identity=MODELS[provider]['model'])
-    agreement = path(recipe['agreement'])
+    # The FamilyFoto Terms and Third-Party Notices kept with the code, unless the recipe names others.
+    agreement = path(recipe['agreement']) if 'agreement' in recipe else AGREEMENT
     (payload / 'legal').mkdir()
     shutil.copyfile(agreement, payload / 'legal' / agreement.name)
     doc = dict(schema_version=1, installer_version=1, release_id=recipe['release_id'],
