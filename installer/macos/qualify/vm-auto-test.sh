@@ -48,7 +48,9 @@ start=$(date +%s); timeout 120 .venv/bin/python3 installer/macos/manage.py stop 
 .venv/bin/python3 installer/macos/manage.py start 2>&1 | head -1; health && echo "health OK after restart"
 step "installed checks"; bash "$KIT/qualify.sh" installed ~/FamilyFoto | tail -8
 step "offline: block the internet, install again into a second folder"
-printf 'block drop out quick inet proto {tcp udp} from any to ! 192.168.64.0/24\nblock drop out quick inet6 all\n' > /tmp/ff-offline.pf
+# Loopback stays open: FamilyFoto talks to its own database and web server on 127.0.0.1, and a
+# blocked close there leaves PostgreSQL holding a dead connection that later blocks stop and backup.
+printf 'set skip on lo0\nblock drop out quick inet proto {tcp udp} from any to ! 192.168.64.0/24\nblock drop out quick inet6 all\n' > /tmp/ff-offline.pf
 sudo -n pfctl -q -f /tmp/ff-offline.pf 2>/dev/null; sudo -n pfctl -q -e 2>/dev/null
 bash "$KIT/qualify.sh" offline | tail -1
 O=$(mktemp -d "$HOME/ff-offline.XXXX"); mkdir -p "$O/attempt"; printf '{"root": "%s", "people": true, "agreement_digest": "%s"}' "$HOME/FamilyFoto-offline" "$(shasum -a 256 "$AG" | cut -c1-64)" > "$O/attempt/choices.json"

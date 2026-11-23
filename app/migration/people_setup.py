@@ -81,7 +81,7 @@ def run(research_only, port=None, check=True, thumbnails=False, limit=None):
     check's failure is reported, never raised, so the caller can show why."""
     from app import database
     from app.config import load_config
-    from face_detect.cli.conformance import check_this_library, record_certificate
+    from face_detect.cli.conformance import check_this_library, record_certificate, stored_vectors
     from face_detect.cli.prepare import prepare
     from face_detect.cli.setup import setup
     from face_detect.service import create_service
@@ -97,8 +97,12 @@ def run(research_only, port=None, check=True, thumbnails=False, limit=None):
         # Setup has made the new engine the active profile; a refused library must not keep it.
         restore_profile(previous)
         raise Refused(f'{refusal}. The engine was installed but is not the active profile') from None
+    if check and not stored_vectors(load_config()):
+        # People is on but has found no faces yet: nothing to compare, and the first scan may
+        # write (certify.may_write), so there is no check to pass or record.
+        check, report['library_check'] = False, 'no-stored-faces'
     if not check:
-        report['library_check'] = 'skipped'
+        report.setdefault('library_check', 'skipped')
         if thumbnails:
             report['thumbnails'] = rebuild_thumbnails(limit)
         return report
