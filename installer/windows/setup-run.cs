@@ -69,7 +69,6 @@ public class FamilyFotoSetupRun {
         info.UseShellExecute = false;
         info.CreateNoWindow = true;
         info.RedirectStandardInput = true;
-        info.StandardInputEncoding = new UTF8Encoding(false);
         info.RedirectStandardOutput = true;
         info.RedirectStandardError = true;
         info.StandardOutputEncoding = Encoding.UTF8;
@@ -79,7 +78,11 @@ public class FamilyFotoSetupRun {
         process.StartInfo = info;
         process.OutputDataReceived += (sender, e) => Take(e.Data, false);
         process.ErrorDataReceived += (sender, e) => Take(e.Data, true);
-        process.Start();
+        // Windows PowerShell uses .NET Framework: Process builds stdin from Console.InputEncoding.
+        // A BOM here corrupts the binary password frame before our first byte is written.
+        var previousEncoding = Console.InputEncoding;
+        try { Console.InputEncoding = new UTF8Encoding(false); process.Start(); }
+        finally { Console.InputEncoding = previousEncoding; }
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
     }

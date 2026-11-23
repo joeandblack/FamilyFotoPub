@@ -101,9 +101,13 @@ function Invoke-SetupPasswordCheck([string]$Root, [string]$Runtime, [string]$Bac
     # Tests only: a stand-in helper (program, then its arguments), for one that never exits.
     if ($Test.Count -ge 1) { $info.FileName = $Test[0]; $info.Arguments = ($Test | Select-Object -Skip 1) -join ' ' }
     $info.UseShellExecute = $false; $info.CreateNoWindow = $true
-    $info.StandardInputEncoding = New-Object Text.UTF8Encoding $false
     $info.RedirectStandardInput = $true; $info.RedirectStandardOutput = $true; $info.RedirectStandardError = $true
-    $process = [Diagnostics.Process]::Start($info)
+    # .NET Framework takes stdin encoding from Console; prevent an automatic BOM.
+    $previousEncoding = [Console]::InputEncoding
+    try {
+        [Console]::InputEncoding = New-Object Text.UTF8Encoding $false
+        $process = [Diagnostics.Process]::Start($info)
+    } finally { [Console]::InputEncoding = $previousEncoding }
     try {
         $process.StandardInput.BaseStream.Write($Frame, 0, $Frame.Length)
         $process.StandardInput.Close()
@@ -163,10 +167,14 @@ function Invoke-SetupPasswordChild([string]$Program, [string[]]$Arguments, [byte
     $info = New-Object Diagnostics.ProcessStartInfo $Program
     $info.Arguments = (@($Arguments | ForEach-Object { ConvertTo-SetupArgument $_ }) -join ' ')
     $info.UseShellExecute = $false
-    $info.StandardInputEncoding = New-Object Text.UTF8Encoding $false
     $info.RedirectStandardInput = $true
     $info.WorkingDirectory = (Get-Location).Path
-    $process = [Diagnostics.Process]::Start($info)
+    # .NET Framework takes stdin encoding from Console; prevent an automatic BOM.
+    $previousEncoding = [Console]::InputEncoding
+    try {
+        [Console]::InputEncoding = New-Object Text.UTF8Encoding $false
+        $process = [Diagnostics.Process]::Start($info)
+    } finally { [Console]::InputEncoding = $previousEncoding }
     try {
         $process.StandardInput.BaseStream.Write($Frame, 0, $Frame.Length)
         $process.StandardInput.Close()
