@@ -108,9 +108,12 @@ New plain-media backups include a `restore-on-mac` folder with `README.txt`. Whe
 installation came from a release, it also gets `RELEASE.txt`, naming the exact
 `FamilyFotoSetup.dmg` to restore with (see `installer/common/README.md`). An installation set up
 from source has no release to name, so its backups get `restore-familyfoto-mac.command` instead:
-a Terminal launcher that needs Command Line Tools, Homebrew and Python 3.12, clones the
-`release/0.1` branch over HTTPS and opens the same setup window in restore mode. A backup never
-has both: a retried release backup removes an earlier launcher.
+a Terminal launcher that needs Command Line Tools, Homebrew and Python 3.12. The backup writes
+into it the commit of the code that made the backup (from the installation's Git checkout, or a
+release folder's `release-manifest.json`), and it downloads exactly that commit over HTTPS, never
+a branch that may have moved on, then opens the same setup window in restore mode. If that commit
+is not on GitHub, it stops and says so; a launcher with no commit refuses before asking anything.
+A backup never has both: a retried release backup removes an earlier launcher.
 
 Setup defaults the library location to `FFLibrary` beside the backup folder for both
 **Copy** and **In place**. For **Copy**, Browse can choose any folder with room for a

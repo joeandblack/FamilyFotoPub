@@ -1,7 +1,10 @@
 #!/bin/bash
-# Download the Mac installer and launch its native restore window.
+# Download the exact FamilyFoto version that made this backup and launch its restore window.
 set -euo pipefail
 umask 077
+# Written by the backup: the commit of the FamilyFoto code that made it.
+commit=''
+repository=https://github.com/joeandblack/FamilyFotoPub.git
 
 fail() { printf '\n%s\n' "$*" >&2; exit 1; }
 
@@ -28,6 +31,7 @@ print(os.path.abspath(os.path.expanduser(value)))
 [[ -x /opt/homebrew/bin/brew ]] || fail 'Install Homebrew first, then run this again.'
 [[ -x /opt/homebrew/opt/python@3.12/bin/python3.12 ]] || fail 'Run: /opt/homebrew/bin/brew install python@3.12, then run this again.'
 xcrun --find swiftc >/dev/null 2>&1 || fail 'Install the Command Line Tools with xcode-select --install, then run this again.'
+[[ "$commit" =~ ^[0-9a-f]{40}$ ]] || fail 'This launcher does not name the FamilyFoto version that made the backup, so it cannot download matching code. Use the copy in the backup'"'"'s restore-on-mac folder; if that one says this too, make a new backup.'
 
 script_path="$(read_path "$0")"
 starting_folder="$(pwd -P)"
@@ -60,13 +64,13 @@ if target.exists():
 staging="$(mktemp -d "${TMPDIR:-/tmp}/familyfoto-download.XXXXXX")"
 cleanup() { rm -rf -- "$staging"; }
 trap cleanup EXIT
-# The branch to install. Change this one name when releases move to another branch.
-branch=release/0.1
-printf '\nDownloading %s from GitHub…\n' "$branch"
+# Exactly the code that made the backup, never a branch that may have moved on since.
 # The public repository downloads over HTTPS; no GitHub account or SSH key is needed.
-git clone --depth 1 --single-branch --branch "$branch" \
-    https://github.com/joeandblack/FamilyFotoPub.git "$staging/source" || \
-    fail 'Download failed. Check this Mac’s network connection, then try again.'
+printf '\nDownloading FamilyFoto %s, the version that made this backup, from GitHub…\n' "${commit:0:7}"
+git init -q "$staging/source"
+git -C "$staging/source" fetch -q --depth 1 "$repository" "$commit" || \
+    fail "Could not download FamilyFoto ${commit:0:7}. Check this Mac’s network connection and try again. If it still fails, the computer that made this backup ran code that is not on GitHub: publish that commit, or make a new backup from published code."
+git -C "$staging/source" -c advice.detachedHead=false checkout -q FETCH_HEAD
 
 mkdir -p -- "$install_folder"
 # Refuse a collision if another process populated the destination during download.

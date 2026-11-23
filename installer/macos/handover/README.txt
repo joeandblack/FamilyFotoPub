@@ -29,8 +29,9 @@ With FamilyFoto Setup (macOS 27 or newer; nothing else to install first)
    window with this backup filled in. Continue with "In the setup window" below.
 
 With the Terminal launcher (needs Command Line Tools, Homebrew and Homebrew Python 3.12)
-The launcher downloads the release/0.1 branch of the public FamilyFotoPub repository from
-GitHub over HTTPS. This Mac needs internet access; no GitHub account is needed.
+The launcher downloads exactly the FamilyFoto version that made this backup (the commit
+written inside it) from the public FamilyFotoPub repository on GitHub, over HTTPS. This Mac
+needs internet access; no GitHub account is needed.
 1. Open Terminal. Create and enter an empty installation folder first, for example:
      mkdir -p ~/FamilyFoto-Restore
      cd ~/FamilyFoto-Restore

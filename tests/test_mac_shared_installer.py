@@ -237,6 +237,26 @@ def test_source_install_backups_keep_the_terminal_launcher(tmp_path):
     assert (folder / 'restore-familyfoto-mac.command').stat().st_mode & 0o700 == 0o700
     text = (folder / 'README.txt').read_text()
     assert 'With FamilyFoto Setup' in text and 'With the Terminal launcher' in text
+    # It downloads exactly the code that made the backup: this checkout's commit.
+    head = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=handover.ROOT, capture_output=True, text=True,
+                          check=True).stdout.strip()
+    assert f"commit='{head}'\n" in (folder / 'restore-familyfoto-mac.command').read_text()
+
+
+def test_source_commit_from_a_checkout_a_release_manifest_or_neither(tmp_path):
+    assert handover.source_commit(tmp_path) == ''  # neither: the launcher then refuses
+    (tmp_path / 'release-manifest.json').write_text(json.dumps({'source_commit': 'b' * 40}))
+    assert handover.source_commit(tmp_path) == 'b' * 40  # a release folder is not a checkout
+    (tmp_path / 'release-manifest.json').write_text(json.dumps({'source_commit': 'main'}))
+    assert handover.source_commit(tmp_path) == ''
+    head = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=handover.ROOT, capture_output=True, text=True,
+                          check=True).stdout.strip()
+    assert handover.source_commit(handover.ROOT) == head
+
+
+def test_launcher_is_written_with_one_commit_line():
+    text = handover.launcher('c' * 40).decode()
+    assert text.count("commit='") == 1 and f"commit='{'c' * 40}'" in text
 
 
 @pytest.mark.skipif(os.name == 'nt', reason='ordinary Windows accounts cannot create symbolic links; '
