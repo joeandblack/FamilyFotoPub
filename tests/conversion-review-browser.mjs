@@ -56,5 +56,35 @@ try{
   writeFileSync(join(out,`review-${width}.png`),Buffer.from((await cdp('Page.captureScreenshot')).data,'base64'));
   await run('document.querySelector("dialog").close()');
  }
- console.log('Desktop/mobile review gallery, pagination and playback callbacks passed:',out);
+ // Bulk delete: tiles are removed one at a time without rebuilding the others, the bar fills, and Stop ends after the current video.
+ await cdp('Emulation.setDeviceMetricsOverride',{width:1280,height:800,deviceScaleFactor:1,mobile:false});
+ await run('writes.length=0;review({id:1})');
+ const button=text=>`Array.from(document.querySelectorAll("button")).find(b=>b.textContent===${JSON.stringify(text)})`;
+ assert.equal(await run(`${button('Stop')}.hidden`),true);
+ await run(`document.querySelectorAll(".tile")[5].dataset.kept="yes";${button('Select all')}.click();${button('Delete retained originals')}.click()`);
+ assert.equal(await run(`${button('Stop')}.hidden`),true,'Stop appears only once deletion starts');
+ await run(`${button('Delete originals')}.click()`);await sleep(20);
+ assert.equal(await run(`${button('Stop')}.hidden`),false);
+ assert.equal(await run(`${button('Delete retained originals')}.hidden`),true);
+ assert.deepEqual(await run('(()=>{const p=document.querySelector(".conversion-delete-progress progress");return [p.value,p.max];})()'),[0,105]);
+ await sleep(650);
+ assert.equal(await run('writes.length'),3,'third request in flight');
+ assert.deepEqual(await run('(()=>{const p=document.querySelector(".conversion-delete-progress progress");return [p.value,p.max];})()'),[2,105]);
+ assert.equal(await run('document.querySelectorAll(".tile").length'),100,'the next page fills the gap');
+ assert.equal(await run('document.querySelectorAll(".tile")[3].dataset.kept'),'yes','remaining tiles are the same elements, not rebuilt');
+ assert.equal(await run('document.querySelectorAll(".tile")[99].getAttribute("aria-label")'),'Select Video 102.MTS');
+ await run(`${button('Stop')}.click()`);
+ assert.equal(await run(`${button('Stopping...')}.disabled`),true);
+ assert.match(await run('document.querySelector(".conversion-delete-progress span").textContent'),/stopping after this one/);
+ await sleep(400);
+ assert.equal(await run('writes.length'),3,'nothing more is sent after Stop');
+ await sleep(400);
+ assert.equal(await run('writes.length'),3);
+ assert.equal(await run('document.querySelector(".conversion-delete-progress").hidden'),true);
+ assert.equal(await run(`${button('Stop')}.hidden`),true);
+ assert.equal(await run('document.querySelector("[role=status].muted").textContent'),'Stopped. 3 of 105 retained originals deleted; the other 102 are still selected.');
+ assert.equal(await run('document.querySelectorAll(".tile.selected").length'),100);
+ assert.equal(await run(`${button('Delete retained originals')}.disabled`),false);
+ writeFileSync(join(out,'review-stopped.png'),Buffer.from((await cdp('Page.captureScreenshot')).data,'base64'));
+ console.log('Desktop/mobile review gallery, pagination, playback callbacks, in-place removal, progress and Stop passed:',out);
 }finally{ws?.close();chrome.kill();await new Promise(r=>server.close(r));}
