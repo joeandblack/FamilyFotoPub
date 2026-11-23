@@ -717,6 +717,17 @@ def test_the_progress_page_log_needs_the_token(world):
     assert client.get('/api/backup-run/log', params={'after': -1}).status_code == 422
 
 
+def test_log_errors_do_not_expose_exception_details(world, monkeypatch):
+    run, client = status_client(world, state='capturing')
+    client.cookies.set(admin_runs.COOKIE, TOKEN)
+    def fail(*args):
+        raise ValueError('internal path or sensitive diagnostic')
+    monkeypatch.setattr(admin_runner, 'read_activity', fail)
+    response = client.get('/api/backup-run/log')
+    assert response.status_code == 422
+    assert response.json() == {'error': 'Invalid log position'}
+
+
 def test_once_familyfoto_is_back_it_serves_the_log_to_the_starting_browser(api, world):
     api.client.post('/api/backup/start', json=start_body(world))
     response = api.client.get('/api/backup-run/log')
