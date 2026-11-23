@@ -4,8 +4,8 @@ import pytest
 from cryptography.fernet import Fernet
 
 from app.backup.media_copy import copy_lock
-from fastbackup import capture, cleanup
-from fastbackup.tests.test_full_capture import world, run  # noqa: F401
+from app.fastbackup import capture, cleanup
+from app.fastbackup.tests.test_full_capture import world, run  # noqa: F401
 
 
 @pytest.fixture
@@ -122,7 +122,7 @@ def test_linked_directory_refused(incomplete):
 
 
 def test_cli_preview_requires_matching_confirmation(incomplete, monkeypatch, capsys):
-    from fastbackup import __main__ as cli
+    from app.fastbackup import __main__ as cli
     monkeypatch.setattr(cli.passwords, 'from_arguments', lambda args: 'fixture-password')
     monkeypatch.setattr(cli.passwords, 'unlock_context', lambda *args: incomplete.key)
     args = ['cleanup-incomplete', '--directory', str(incomplete.backup)]

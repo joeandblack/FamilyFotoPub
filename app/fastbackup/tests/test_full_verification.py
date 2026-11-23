@@ -2,8 +2,8 @@ import os
 
 import pytest
 
-from fastbackup import full_copy
-from fastbackup.tests.test_full_copy import Guard, fixture
+from app.fastbackup import full_copy
+from app.fastbackup.tests.test_full_copy import Guard, fixture
 
 
 @pytest.mark.skipif(os.name != 'nt', reason='Windows flush/hash pass')

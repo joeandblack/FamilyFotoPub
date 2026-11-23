@@ -40,7 +40,7 @@ software and database tools supplied by the destination installation.
 
 | Property | Standard | Fast |
 | --- | --- | --- |
-| Main implementation | `app/backup/` | `fastbackup/` |
+| Main implementation | `app/backup/` | `app/fastbackup/` |
 | Intended trade-off | Resume interrupted capture | Simpler high-throughput transfer |
 | Interrupted attempt | Retry using Standard's resume rules | Start a new full copy in a new folder |
 | Media assurance | Full verification | Full verification |
@@ -102,19 +102,19 @@ the backup computer or termination of its worker processes.
 
 | Component | Responsibility |
 | --- | --- |
-| [Settings](../web/backup-settings.mjs) and [progress](../web/backup-progress.mjs) | Method descriptions, confirmation, progress, logs and elapsed-time history |
-| [Application API](../app/backup/admin_api.py) and [runner](../app/backup/admin_runner.py) | Preflight, detached execution, server stop/restart and retry decisions |
+| [Settings](../../web/backup-settings.mjs) and [progress](../../web/backup-progress.mjs) | Method descriptions, confirmation, progress, logs and elapsed-time history |
+| [Application API](../backup/admin_api.py) and [runner](../backup/admin_runner.py) | Preflight, detached execution, server stop/restart and retry decisions |
 | [Capture coordinator](capture.py) | Consistency window, catalog/state/media ordering and final authenticated index |
 | [Media worker](copy_worker.py) | Process isolation, progress transport, deadline and clean-exit confirmation |
 | [Full copy](full_copy.py) | Inventory admission, capacity, transfer/verification phases and media completion |
 | [Windows bulk copy](windows_bulk_copy.py) | Bounded concurrent CopyFile2 calls |
 | [Portable copy](native_copy.py) | macOS/POSIX copying and platform flush helpers |
-| [Library coordinator](../app/backup/library.py) | Shared capture coordination, reconciliation and full-format validation |
-| [Catalog](../app/backup/catalog.py), [encrypted artifacts](../app/backup/encrypted.py) and [media inventory](../app/backup/media_inventory.py) | Database/state capture, authenticated encryption and inventory construction |
+| [Library coordinator](../backup/library.py) | Shared capture coordination, reconciliation and full-format validation |
+| [Catalog](../backup/catalog.py), [encrypted artifacts](../backup/encrypted.py) and [media inventory](../backup/media_inventory.py) | Database/state capture, authenticated encryption and inventory construction |
 | [Restore facade](restore.py) | Delegation to the existing inactive-target recovery path |
 | [Cleanup](cleanup.py) | Explicit, ownership-checked reclamation of incomplete Fast attempts |
 
-The top-level `fastbackup/` package is an alternate engine, not an independent
+The sibling `app/fastbackup/` package is an alternate engine, not an independent
 application or duplicate recovery system. Shared components remain in
 `app/backup/`.
 
@@ -356,11 +356,11 @@ recovery points, not copy-only speed alone.
 
 ## Evidence and source references
 
-- Current behaviour, commands and cleanup: [Backup and restore](../docs/BACKUP.md#standard-and-fast).
-- Shared [state policy](../app/backup/policy.py),
-  [media inventory](../app/backup/media_inventory.py),
-  [state capture](../app/backup/state_files.py) and
-  [library restore](../app/backup/library_restore.py).
+- Current behaviour, commands and cleanup: [Backup and restore](../../docs/BACKUP.md#standard-and-fast).
+- Shared [state policy](../backup/policy.py),
+  [media inventory](../backup/media_inventory.py),
+  [state capture](../backup/state_files.py) and
+  [library restore](../backup/library_restore.py).
 
 This document does not authorize a deployment, benchmark against live data or
 deletion of any existing backup.

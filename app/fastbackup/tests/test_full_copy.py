@@ -4,7 +4,7 @@ import pytest
 
 from app.backup.media_inventory import capture_media_inventory
 from app.backup.media_tree import verify_media_tree
-from fastbackup import full_copy
+from app.fastbackup import full_copy
 
 
 class Guard:

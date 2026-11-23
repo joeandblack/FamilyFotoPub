@@ -4,8 +4,8 @@ from pathlib import Path
 import pytest
 
 from app.backup import media_inventory, library
-from fastbackup.tests.test_full_copy import Guard, copy, fixture
-from fastbackup.tests.test_lightweight_preparation import edit_inventory
+from app.fastbackup.tests.test_full_copy import Guard, copy, fixture
+from app.fastbackup.tests.test_lightweight_preparation import edit_inventory
 
 
 @pytest.mark.parametrize('immutable,walks', [(False, 2), (True, 1)])
@@ -71,7 +71,7 @@ def test_catalog_fallback_uses_explicit_source_policy(tmp_path, monkeypatch, imm
 
 
 def test_native_copy_never_restats_source_after_copy(tmp_path, monkeypatch):
-    from fastbackup import native_copy
+    from app.fastbackup import native_copy
     source, target = tmp_path / 'photo', tmp_path / 'copy'
     source.write_bytes(b'photo')
     original_stat = Path.stat
@@ -89,7 +89,7 @@ def test_native_copy_never_restats_source_after_copy(tmp_path, monkeypatch):
 
 
 def test_native_copy_never_overwrites_existing_destination(tmp_path):
-    from fastbackup.native_copy import copy_file
+    from app.fastbackup.native_copy import copy_file
     source, target = tmp_path / 'photo', tmp_path / 'copy'
     source.write_bytes(b'photo')
     target.write_bytes(b'keep')

@@ -75,7 +75,7 @@ Installing:
   application-code updates; never run a fresh installation over an existing library.
 
 Elsewhere: [the People package](face_detect/README.md), the
-[Fast backup white paper](fastbackup/WHITE_PAPER.md) and [operator scripts](scripts/README.md).
+[Fast backup white paper](app/fastbackup/WHITE_PAPER.md) and [operator scripts](scripts/README.md).
 Open work is tracked in [GitHub issues](https://github.com/joeandblack/FamilyFotoPub/issues)
 ([TODO.md](TODO.md) points there); [People](docs/PEOPLE.md#not-built-yet) and
 [Backup](docs/BACKUP.md#not-built-yet) also list what isn't built yet.

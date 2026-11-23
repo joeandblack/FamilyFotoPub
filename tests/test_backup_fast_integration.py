@@ -50,7 +50,7 @@ def test_api_rejects_mode_before_database_or_launch(world, monkeypatch):  # noqa
 
 
 def test_fast_runner_new_attempt_preserves_old_and_never_resumes(world, monkeypatch):  # noqa: F811
-    from fastbackup import capture
+    from app.fastbackup import capture
     old = world.backup / 'old-attempt'
     old.mkdir()
     (old / 'partial').write_bytes(b'keep')
@@ -78,7 +78,7 @@ def test_fast_runner_new_attempt_preserves_old_and_never_resumes(world, monkeypa
 
 @pytest.mark.parametrize('retained', [False, True])
 def test_fast_runner_does_not_mark_failed_capture_verified(world, monkeypatch, retained):  # noqa: F811
-    from fastbackup import capture
+    from app.fastbackup import capture
     value = dict(directory=str(world.backup / 'new'), copy_strategy='fast-full', pg_dump=str(world.pg_dump),
                  database_budget=1024, allow_unprotected=False)
     if retained:

@@ -2,8 +2,8 @@ import os
 
 import pytest
 
-from fastbackup import full_copy
-from fastbackup.tests.test_full_copy import copy, fixture
+from app.fastbackup import full_copy
+from app.fastbackup.tests.test_full_copy import copy, fixture
 
 
 def test_all_copies_precede_verification(tmp_path):
@@ -112,7 +112,7 @@ def test_phase_boundary_logs_are_not_throttled(monkeypatch):
 
 
 def test_worker_heartbeat_retains_phase_counts_and_freezes_completed_duration():
-    from fastbackup.copy_worker import _heartbeat_event
+    from app.fastbackup.copy_worker import _heartbeat_event
     last = dict(phase='media-verification', state='running', elapsed_seconds=4, files=2, bytes=8)
     assert _heartbeat_event(last, 6) == dict(last, elapsed_seconds=10)
     assert last['elapsed_seconds'] == 4

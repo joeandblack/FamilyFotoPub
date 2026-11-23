@@ -5,8 +5,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from fastbackup.diagnostics import CopyFailure, describe
-from fastbackup.native_copy import flush_device
+from app.fastbackup.diagnostics import CopyFailure, describe
+from app.fastbackup.native_copy import flush_device
 from app.backup.diagnostics import ExplainedFailure
 
 
@@ -27,7 +27,7 @@ def test_explained_and_unknown_errors():
 
 
 def test_worker_preserves_safe_error_codes(monkeypatch):
-    from fastbackup import copy_worker
+    from app.fastbackup import copy_worker
     messages = []
     closed = []
     connection = SimpleNamespace(send_bytes=lambda raw: messages.append(json.loads(raw)),

@@ -6,9 +6,9 @@ import subprocess
 import sys
 import tempfile
 
-from fastbackup.native_copy import guid_path as _guid
-from fastbackup.windows_bulk_copy import copy_file as _copy
-from fastbackup.windows_pinned_directory import PinnedDirectory, PinnedSourceFile
+from app.fastbackup.native_copy import guid_path as _guid
+from app.fastbackup.windows_bulk_copy import copy_file as _copy
+from app.fastbackup.windows_pinned_directory import PinnedDirectory, PinnedSourceFile
 
 
 def _worker(root, size):
@@ -36,10 +36,10 @@ def run_synthetic(size=2048):
         raise RuntimeError('Windows required')
     with tempfile.TemporaryDirectory(prefix='familyfoto-native-file-') as temporary:
         command = [sys.executable, '-B', '-c',
-                   'import json,sys; from fastbackup.tests.windows_copy_fixture import _worker; '
+                   'import json,sys; from app.fastbackup.tests.windows_copy_fixture import _worker; '
                    'print(json.dumps(_worker(sys.argv[1],int(sys.argv[2]))))',
                    str(Path(temporary).resolve()), str(size)]
-        result = subprocess.run(command, cwd=Path(__file__).resolve().parents[2],
+        result = subprocess.run(command, cwd=Path(__file__).resolve().parents[3],
                                 capture_output=True, text=True, timeout=30, check=True,
                                 stdin=subprocess.DEVNULL)
         return json.loads(result.stdout)

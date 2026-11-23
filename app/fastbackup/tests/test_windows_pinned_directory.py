@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from fastbackup.windows_pinned_directory import PinnedDirectory, require_guid_path
+from app.fastbackup.windows_pinned_directory import PinnedDirectory, require_guid_path
 
 GUID = '\\\\?\\Volume{827d6df9-b18d-4b9d-bbc8-d6dd988c1d4d}\\'
 

@@ -3,11 +3,11 @@ import time
 
 import pytest
 
-from fastbackup.windows_bulk_copy import copy_files
+from app.fastbackup.windows_bulk_copy import copy_files
 
 
 def test_bare_primitive_calls_copyfile2_without_filesystem_checks(tmp_path, monkeypatch):
-    from fastbackup import windows_bulk_copy as bulk
+    from app.fastbackup import windows_bulk_copy as bulk
     calls = []
 
     def native(source, target, parameters):
@@ -20,7 +20,7 @@ def test_bare_primitive_calls_copyfile2_without_filesystem_checks(tmp_path, monk
 
 
 def test_native_failure_is_not_reported_as_success(tmp_path, monkeypatch):
-    from fastbackup import windows_bulk_copy as bulk
+    from app.fastbackup import windows_bulk_copy as bulk
     monkeypatch.setattr(bulk, 'copy_api', lambda: lambda *args: -2147024784)
     with pytest.raises(OSError, match='HRESULT'):
         bulk.copy_file(tmp_path / 'source', tmp_path / 'target')

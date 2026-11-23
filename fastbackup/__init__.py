@@ -1,1 +1,1 @@
-"""Opt-in fast backup capture, verification, recovery and safe cleanup."""
+"""Compatibility entry point; runtime implementation lives in app.fastbackup."""

@@ -3,8 +3,8 @@ import sqlite3
 import pytest
 
 from app.backup.media_inventory import portable_path
-from fastbackup import full_copy
-from fastbackup.tests.test_full_copy import copy, fixture
+from app.fastbackup import full_copy
+from app.fastbackup.tests.test_full_copy import copy, fixture
 
 
 def edit_inventory(paths, statement, values=()):
@@ -113,7 +113,7 @@ def test_path_failure_is_reported_during_copy_and_attempt_stays_incomplete(tmp_p
 
 def test_nested_empty_folders_preserved_without_upfront_directory_pass(tmp_path):
     from app.backup.media_inventory import capture_media_inventory
-    from fastbackup.tests.test_full_copy import Guard
+    from app.fastbackup.tests.test_full_copy import Guard
     source = tmp_path / 'source'
     (source / 'a/b/c').mkdir(parents=True)
     inventory, target = tmp_path / 'inventory', tmp_path / 'copy'
