@@ -35,13 +35,20 @@ the automatic checks; everything marked **(manual)** needs a person at the VM.
    and `dmg --app … --output FamilyFotoSetup.dmg`.
 10. Offline app: `descriptor --mode offline`, `build_release.py bundle --release release --engine
     engine.zip --output bundle/` (audits first), `app --descriptor offline.json --bundle bundle/`, `dmg`.
-11. Corresponding source (FFmpeg is built `--enable-gpl` with x264 and x265): from both payloads'
-    `payload-info.json`, download every formula's `source_url` and check its `source_sha256`, and
-    export each formula's Homebrew recipe and patches at the recorded `tap_git_head`
-    (`ruby_source_path`). Publish them all as release assets beside the DMG, not as links. The
-    audit already refuses a formula with no matching source or no license; `payload-info.json`
-    also records the Homebrew version, each formula's revision and its bottle checksums. Build
-    releases on a dedicated, clean build Mac (no extra taps or formulas) so they can be rebuilt.
+11. Corresponding source (the agreement promises it for every copyleft program): collect a
+    `sources/` folder and name it in the recipe (`"sources"`). The audit refuses the release until
+    it holds:
+    - for every Homebrew formula in both payloads' `payload-info.json`: its `source_url` archive
+      (checked against `source_sha256`), and its recipe and patches exported at the recorded
+      `tap_git_head` (`ruby_source_path`) as `sources/homebrew/<formula>.rb`;
+    - for every wheel under a GPL, LGPL, MPL or similar licence (psycopg is LGPL-3.0): its source
+      distribution, `sources/<name>-<version>.tar.gz` from PyPI. A binary-only wheel such as
+      `psycopg-binary` has no PyPI source distribution; put the source it is built from (psycopg's
+      release archive) under that name.
+    Publish everything in `sources/` as release assets beside the DMG, not as links.
+    `payload-info.json` also records the Homebrew version, each formula's revision and its bottle
+    checksums. Build releases on a dedicated, clean build Mac (no extra taps or formulas) so they
+    can be rebuilt.
 12. Publish on the public release repository named by `RELEASE_BASE` (immutable releases on):
     every file in `release/assets.json` under its asset name, `engine.zip`, both DMGs, the sources,
     and a `SHA256SUMS` file. Check every asset downloads without signing in.

@@ -135,7 +135,7 @@ def runtime_zip(path, files, info=None):
     return path
 
 
-def recipe(tmp_path, monkeypatch, *, source=True, wheel_license='MIT'):
+def recipe(tmp_path, monkeypatch, *, source=True, wheel_license='MIT', sources=True):
     """A small but complete Mac release recipe made of fixture files."""
     models = tmp_path / 'models'
     models.mkdir()
@@ -168,6 +168,11 @@ def recipe(tmp_path, monkeypatch, *, source=True, wheel_license='MIT'):
            'models': {'insightface': 'models/buffalo_l.zip', 'facenet': 'models/recognizer.pt'},
            'licenses': {'python': ['PSF-2.0'], 'postgres': ['PostgreSQL'], 'ffmpeg': ['GPL-3.0-or-later'],
                         'setup-window': ['FamilyFoto'], 'model-insightface': ['research'], 'model-facenet': ['research']}}
+    if sources:  # the published source of every Homebrew formula (archive and recipe)
+        (tmp_path / 'sources/homebrew').mkdir(parents=True)
+        (tmp_path / 'sources/demo-1.0.tar.gz').write_bytes(b'demo source')
+        (tmp_path / 'sources/homebrew/demo.rb').write_text('class Demo < Formula\nend\n')
+        doc['sources'] = 'sources'
     path = tmp_path / 'recipe.json'
     path.write_text(json.dumps(doc))
     return path
@@ -205,6 +210,22 @@ def test_release_uses_the_repository_terms_unless_the_recipe_names_others(tmp_pa
     assert shipped.read_bytes() == (ROOT / 'installer/legal/agreement.txt').read_bytes()
     assert manifest.document['agreement_sha256'] == build_release.file_sha256(shipped)
     build_release.audit(manifest, tmp_path / 'release/payload')
+
+
+def test_release_without_its_sources_fails_the_audit(tmp_path, monkeypatch):
+    manifest, release = assembled(tmp_path, monkeypatch, sources=False)
+    with pytest.raises(ValueError) as refused:
+        build_release.audit(manifest, release / 'payload')
+    assert 'sources/ lacks demo-1.0.tar.gz' in str(refused.value)
+    assert 'sources/homebrew/ lacks demo.rb' in str(refused.value)
+
+
+def test_copyleft_wheel_needs_its_source_distribution(tmp_path, monkeypatch):
+    manifest, release = assembled(tmp_path, monkeypatch, wheel_license='GNU Lesser General Public License v3 (LGPLv3)')
+    with pytest.raises(ValueError, match='lacks the source distribution of insightface_pkg 1.0'):
+        build_release.audit(manifest, release / 'payload')
+    (release / 'sources/insightface-pkg-1.0.tar.gz').write_bytes(b'sdist')  # any spelling of the name
+    build_release.audit(manifest, release / 'payload')
 
 
 def test_terms_cover_what_a_release_bundles():

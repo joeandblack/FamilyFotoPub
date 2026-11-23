@@ -16,7 +16,8 @@ The recipe names local, already-built inputs; nothing here downloads or publishe
              "insightface": ..., "facenet": ...},
    "wheels": "wheelhouse/",                                   (every wheel the locks pin)
    "models": {"insightface": "buffalo_l.zip", "facenet": "20180402-114759-vggface2.pt"},
-   "licenses": {"application": ["FamilyFoto"], "python": ["PSF-2.0"], "wheel:insightface": ["MIT"], ...}}
+   "licenses": {"application": ["FamilyFoto"], "python": ["PSF-2.0"], "wheel:insightface": ["MIT"], ...},
+   "sources": "sources/"}     (published with the release; `audit` lists what it must hold)
 
 Assets are published flat: `bundle_path` with `/` replaced by `--`, under RELEASE_BASE.
 """
@@ -29,7 +30,7 @@ import shutil
 import sys
 import zipfile
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
@@ -47,6 +48,45 @@ CORE_LOCKS = ('core', 'password', 'people-view')
 PEOPLE_LOCKS = ('insightface', 'facenet')
 MODELS = json.loads((ROOT / 'face_detect/config/research-models.json').read_text(encoding='utf-8'))
 AGREEMENT = ROOT / 'installer/legal/agreement.txt'
+# Licences whose terms require the source to be offered with the binaries (the agreement promises it).
+COPYLEFT = re.compile(r'GPL|General Public License|MPL|Mozilla Public|EPL|Eclipse Public|CDDL|EUPL', re.I)
+
+
+def normalized(name):
+    return re.sub('[-_.]+', '-', name).lower()
+
+
+def missing_sources(manifest, payload_root):
+    """What the release must publish as source but sources/ (beside payload/) lacks.
+
+    Every Homebrew formula in the native payloads needs its source archive (checked against its
+    SHA-256) and its recipe as sources/homebrew/<formula>.rb; every wheel under a copyleft licence
+    needs its source distribution, sources/<name>-<version>.tar.gz or .zip."""
+    sources = Path(payload_root).parent / 'sources'
+    present = {normalized(p.name): p for p in sources.rglob('*') if p.is_file()} if sources.is_dir() else {}
+    problems = []
+    for item in manifest.components.values():
+        path = Path(payload_root) / str(safe_relative(item['bundle_path']))
+        if item.get('runtime_role') in ('postgres', 'ffmpeg') and path.is_file():
+            try:
+                info = json.loads(zipfile.ZipFile(path).read('payload-info.json'))
+            except (zipfile.BadZipFile, KeyError, ValueError):
+                continue  # a damaged payload is already reported as differing from the manifest
+            for formula, entry in sorted(info.get('formulas', {}).items()):
+                if entry.get('source_url'):
+                    archive = Path(urlsplit(entry['source_url']).path).name
+                    found = present.get(normalized(archive))
+                    if not found or (entry.get('source_sha256') and file_sha256(found) != entry['source_sha256']):
+                        problems.append(f"{item['id']}: sources/ lacks {archive}, the source of {formula} {entry['version']}")
+                if not (sources / 'homebrew' / f'{formula}.rb').is_file():
+                    problems.append(f"{item['id']}: sources/homebrew/ lacks {formula}.rb, its Homebrew recipe")
+        elif item['bundle_path'].endswith('.whl') and any(COPYLEFT.search(i) for i in item['license_ids']):
+            name, version = Path(item['bundle_path']).name.split('-')[:2]
+            stem = normalized(f'{name}-{version}')
+            if not any(k.startswith(stem + '-tar-gz') or k == stem + '-zip' for k in present):
+                problems.append(f"{item['id']}: sources/ lacks the source distribution of {name} {version} "
+                                f"({', '.join(item['license_ids'])})")
+    return problems
 
 
 def model_digest(provider):
@@ -164,6 +204,8 @@ def assemble(recipe_path, output):
             model_identity=MODELS[provider]['model'])
     # The FamilyFoto Terms and Third-Party Notices kept with the code, unless the recipe names others.
     agreement = path(recipe['agreement']) if 'agreement' in recipe else AGREEMENT
+    if 'sources' in recipe:  # published beside the payload; the audit checks what it must contain
+        shutil.copytree(path(recipe['sources']), output / 'sources')
     (payload / 'legal').mkdir()
     shutil.copyfile(agreement, payload / 'legal' / agreement.name)
     doc = dict(schema_version=1, installer_version=1, release_id=recipe['release_id'],
@@ -237,6 +279,8 @@ def audit(manifest, payload_root):
     agreement = payload_root / str(safe_relative(doc['agreement_path']))
     if not agreement.is_file() or file_sha256(agreement) != doc['agreement_sha256']:
         problems.append('the agreement differs from the manifest')
+    # The agreement promises the corresponding source of copyleft programs with every release.
+    problems += missing_sources(manifest, payload_root)
     if problems:
         raise ValueError('Mac release audit failed:\n- ' + '\n- '.join(problems))
 
