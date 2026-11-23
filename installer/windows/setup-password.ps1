@@ -104,10 +104,11 @@ function Invoke-SetupPasswordCheck([string]$Root, [string]$Runtime, [string]$Bac
     $info.RedirectStandardInput = $true; $info.RedirectStandardOutput = $true; $info.RedirectStandardError = $true
     # .NET Framework takes stdin encoding from Console; prevent an automatic BOM.
     $previousEncoding = [Console]::InputEncoding
+    $changeEncoding = $previousEncoding.GetPreamble().Length -ne 0
     try {
-        [Console]::InputEncoding = New-Object Text.UTF8Encoding $false
+        if ($changeEncoding) { [Console]::InputEncoding = New-Object Text.UTF8Encoding $false }
         $process = [Diagnostics.Process]::Start($info)
-    } finally { [Console]::InputEncoding = $previousEncoding }
+    } finally { if ($changeEncoding) { [Console]::InputEncoding = $previousEncoding } }
     try {
         $process.StandardInput.BaseStream.Write($Frame, 0, $Frame.Length)
         $process.StandardInput.Close()
@@ -171,10 +172,11 @@ function Invoke-SetupPasswordChild([string]$Program, [string[]]$Arguments, [byte
     $info.WorkingDirectory = (Get-Location).Path
     # .NET Framework takes stdin encoding from Console; prevent an automatic BOM.
     $previousEncoding = [Console]::InputEncoding
+    $changeEncoding = $previousEncoding.GetPreamble().Length -ne 0
     try {
-        [Console]::InputEncoding = New-Object Text.UTF8Encoding $false
+        if ($changeEncoding) { [Console]::InputEncoding = New-Object Text.UTF8Encoding $false }
         $process = [Diagnostics.Process]::Start($info)
-    } finally { [Console]::InputEncoding = $previousEncoding }
+    } finally { if ($changeEncoding) { [Console]::InputEncoding = $previousEncoding } }
     try {
         $process.StandardInput.BaseStream.Write($Frame, 0, $Frame.Length)
         $process.StandardInput.Close()

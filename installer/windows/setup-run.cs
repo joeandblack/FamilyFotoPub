@@ -56,8 +56,10 @@ public class FamilyFotoSetupRun {
     }
     public void Start(string program, string[] arguments, string directory, string input, string logPath) {
         Launch(program, arguments, directory, logPath);
-        if (input != null) { process.StandardInput.WriteLine(input); }
-        process.StandardInput.Close();
+        if (input == null) { process.StandardInput.Close(); return; }
+        byte[] bytes = new UTF8Encoding(false).GetBytes(input + "\n");
+        try { process.StandardInput.BaseStream.Write(bytes, 0, bytes.Length); process.StandardInput.BaseStream.Flush(); }
+        finally { process.StandardInput.Close(); Array.Clear(bytes, 0, bytes.Length); }
     }
     private void Launch(string program, string[] arguments, string directory, string logPath) {
         log = new StreamWriter(logPath, true, new UTF8Encoding(false));
@@ -81,8 +83,11 @@ public class FamilyFotoSetupRun {
         // Windows PowerShell uses .NET Framework: Process builds stdin from Console.InputEncoding.
         // A BOM here corrupts the binary password frame before our first byte is written.
         var previousEncoding = Console.InputEncoding;
-        try { Console.InputEncoding = new UTF8Encoding(false); process.Start(); }
-        finally { Console.InputEncoding = previousEncoding; }
+        // A detached GUI may have no console to reconfigure. Its default encoding has no BOM;
+        // only change a BOM-emitting encoding, and send all payloads as explicit UTF-8 bytes.
+        bool changeEncoding = previousEncoding.GetPreamble().Length != 0;
+        try { if (changeEncoding) Console.InputEncoding = new UTF8Encoding(false); process.Start(); }
+        finally { if (changeEncoding) Console.InputEncoding = previousEncoding; }
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
     }
