@@ -6,6 +6,7 @@ installed or started, and Homebrew itself is never changed.
 """
 import io
 import json
+import tarfile
 import struct
 import os
 import platform
@@ -135,7 +136,7 @@ def runtime_zip(path, files, info=None):
     return path
 
 
-def recipe(tmp_path, monkeypatch, *, source=True, wheel_license='MIT'):
+def recipe(tmp_path, monkeypatch, *, source=True, wheel_license='MIT', sources=True):
     """A small but complete Mac release recipe made of fixture files."""
     models = tmp_path / 'models'
     models.mkdir()
@@ -168,6 +169,11 @@ def recipe(tmp_path, monkeypatch, *, source=True, wheel_license='MIT'):
            'models': {'insightface': 'models/buffalo_l.zip', 'facenet': 'models/recognizer.pt'},
            'licenses': {'python': ['PSF-2.0'], 'postgres': ['PostgreSQL'], 'ffmpeg': ['GPL-3.0-or-later'],
                         'setup-window': ['FamilyFoto'], 'model-insightface': ['research'], 'model-facenet': ['research']}}
+    if sources:  # the published source of every Homebrew formula (archive and recipe)
+        (tmp_path / 'sources/homebrew').mkdir(parents=True)
+        (tmp_path / 'sources/demo-1.0.tar.gz').write_bytes(b'demo source')
+        (tmp_path / 'sources/homebrew/demo.rb').write_text('class Demo < Formula\nend\n')
+        doc['sources'] = 'sources'
     path = tmp_path / 'recipe.json'
     path.write_text(json.dumps(doc))
     return path
@@ -193,6 +199,57 @@ def test_assembled_release_passes_the_audit(tmp_path, monkeypatch):
     assert all(c['url'].endswith('/' + c['bundle_path'].replace('/', '--')) for c in doc['components'])
     people = {c['id'] for c in manifest.plan(['core', 'people'], 'macos-arm64', '27.0')}
     assert {'model-insightface', 'model-facenet', 'lock-insightface', 'lock-facenet'} <= people
+
+
+def test_release_uses_the_repository_terms_unless_the_recipe_names_others(tmp_path, monkeypatch):
+    path = recipe(tmp_path, monkeypatch)
+    doc = json.loads(path.read_text())
+    del doc['agreement']
+    path.write_text(json.dumps(doc))
+    manifest = build_release.assemble(path, tmp_path / 'release')
+    shipped = tmp_path / 'release/payload' / manifest.document['agreement_path']
+    assert shipped.read_bytes() == (ROOT / 'installer/legal/agreement.txt').read_bytes()
+    assert manifest.document['agreement_sha256'] == build_release.file_sha256(shipped)
+    build_release.audit(manifest, tmp_path / 'release/payload')
+
+
+def test_release_without_its_sources_fails_the_audit(tmp_path, monkeypatch):
+    manifest, release = assembled(tmp_path, monkeypatch, sources=False)
+    with pytest.raises(ValueError) as refused:
+        build_release.audit(manifest, release / 'payload')
+    assert 'sources/ lacks demo-1.0.tar.gz' in str(refused.value)
+    assert 'sources/homebrew/ lacks demo.rb' in str(refused.value)
+
+
+def test_copyleft_wheel_needs_its_source_distribution(tmp_path, monkeypatch):
+    manifest, release = assembled(tmp_path, monkeypatch, wheel_license='GNU Lesser General Public License v3 (LGPLv3)')
+    with pytest.raises(ValueError, match='lacks the source distribution of insightface_pkg 1.0'):
+        build_release.audit(manifest, release / 'payload')
+    sources = release / 'sources'
+    for sidecar in ('insightface_pkg-1.0.tar.gz.sha256', 'insightface_pkg-1.0.tar.gz.asc', 'insightface_pkg-1.0.tar.gz.part'):
+        (sources / sidecar).write_text('not the archive')
+        with pytest.raises(ValueError, match='lacks the source distribution'):
+            build_release.audit(manifest, release / 'payload')
+    (sources / 'insightface_pkg-1.0.tar.gz').write_bytes(b'not an archive')
+    with pytest.raises(ValueError, match='lacks the source distribution'):
+        build_release.audit(manifest, release / 'payload')
+    (sources / 'insightface_pkg-1.0.tar.gz').unlink()
+    with tarfile.open(sources / 'insightface-pkg-1.0.tar.gz', 'w:gz') as archive:  # any spelling of the name
+        data = b'[project]\nname = "insightface_pkg"\n'
+        info = tarfile.TarInfo('insightface_pkg-1.0/pyproject.toml')
+        info.size = len(data)
+        archive.addfile(info, io.BytesIO(data))
+    build_release.audit(manifest, release / 'payload')
+
+
+def test_terms_cover_what_a_release_bundles():
+    text = (ROOT / 'installer/legal/agreement.txt').read_text(encoding='utf-8')
+    assert text.startswith('FamilyFoto Terms and Third-Party Notices\n')
+    for required in ('GPL-3.0', 'WITHOUT ANY WARRANTY', 'Python Software Foundation', 'PostgreSQL License',
+                     'FFmpeg', 'x264', 'LGPL', 'corresponding source', 'buffalo_l', 'VGGFace2',
+                     'NON-COMMERCIAL RESEARCH USE ONLY', 'https://github.com/joeandblack/FamilyFotoPub/releases'):
+        assert required in text, required
+    assert all(ord(c) < 128 for c in text)  # plain ASCII: shows the same in every setup window
 
 
 def test_missing_locked_wheel_is_refused_at_assembly(tmp_path, monkeypatch):
