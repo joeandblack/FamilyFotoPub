@@ -72,8 +72,12 @@ ruff check .
 ## Branching and CI
 
 Use `feature/`, `fix/`, or `doc/` branches and open PRs against `main` in FamilyFotoPub.
-The `Tests` workflow runs on PRs into `main` and pushes to `main`. A newer push cancels
-that PR's older run. Windows `safety` and the aggregate `macos` result remain required.
+Automatic `Tests` and `Release CodeQL` runs are limited to pushes to `release/**` and
+`beta-release-*`, including branch creation and subsequent release fixes. Ordinary PRs,
+`main` pushes and `v*` tags do not start either workflow. A newer release-branch push
+cancels that branch's older run of the same workflow. Main's protection must not require
+CI statuses that intentionally do not run for ordinary PRs; keep its other protections.
+Report local tests and obtain review before merging ordinary changes.
 
 | Job | Runs when | Isolation |
 | --- | --- | --- |
@@ -84,7 +88,9 @@ that PR's older run. Windows `safety` and the aggregate `macos` result remain re
 | macOS Swift | Mac/shared installer, backup/recovery protocol or native test changes | Separate compilation workspace |
 | macOS APFS | Backup, storage, recovery, Mac/shared installer or remount-test changes | Disposable disk images on a separate VM |
 
-Dependency, CI configuration and shared test-helper changes enable all expensive groups.
+Release pushes run every test group. The job-selection rules above apply only to an
+explicit manual or reusable run with `full` disabled. In that mode, dependency, CI
+configuration and shared test-helper changes enable all expensive groups.
 Documentation-only and web-only changes skip the database, Swift and APFS groups; ordinary
 Python and JavaScript tests still run. Consequently, database-backed browser integration
 coverage for web-only changes is deferred to full qualification. Backend changes deliberately
@@ -105,15 +111,33 @@ cancelled scheduled group cannot be reported as a successful bypass.
 
 ### Release qualification
 
-Run **Actions → Tests → Run workflow**, leaving **full** selected, before publishing a release.
-Pushing a `v*` tag also runs all groups, regardless of changed paths. Release build workflows
+Cut a release branch from the current main to run full tests and CodeQL before publishing.
+Alternatively run **Actions → Tests → Run workflow**, leaving **full** selected, and run
+**Release CodeQL** manually on the same commit. CodeQL scans Actions, C#, JavaScript/TypeScript
+and Python. There is no weekly scan. Pushing a `v*` tag does not run qualification.
+Release build workflows
 can call `.github/workflows/tests.yml` as a reusable workflow (full defaults to true) and make
-packaging depend on its success. A tag-triggered run alone is not a pre-publication gate.
+packaging depend on its success. Confirm both tests and CodeQL succeeded for the exact
+release commit before publication; these workflows do not themselves block publication.
 
 For diagnostics, deselecting **full** on a manual run compares the selected commit with its
-parent. Ordinary PRs compare their complete branch diff with the merge base, including both
-sides of renames; missing Git history falls back to all groups. No labels or commit messages
-bypass the required checks.
+parent. Reusable callers can also select partial qualification explicitly. The change
+planner accounts for both sides of renames; missing Git history falls back to all groups.
+Labels and commit messages do not select or bypass test groups.
+
+### Release-only policy rollout
+
+1. Disable the existing Tests workflow and GitHub-managed CodeQL default setup while
+   changing the policy. Disabled workflows cannot be dispatched manually either.
+2. With owner approval, remove only main's required CI status rule so this policy PR
+   and ordinary PRs can merge without paid CI. Preserve all other branch protections.
+3. Merge the workflow changes, then re-enable Tests. Keep managed CodeQL default setup
+   **off**: the checked-in `codeql.yml` replaces it with release-only/manual scans.
+4. Update historical release branches to include these workflow changes before pushing
+   or qualifying them; workflow definitions come from the selected branch. New release
+   branches should be cut from main after the policy merges.
+5. Qualification is now deferred until release or explicit manual runs. Review and local
+   testing remain necessary; absence of PR checks is not evidence that a change passed.
 
 ```sh
 # Inspect the change plan or collect every test's group without running fixtures.
