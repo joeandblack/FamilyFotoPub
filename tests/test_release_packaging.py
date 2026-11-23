@@ -66,27 +66,27 @@ def test_test_dependencies_are_not_runtime():
 
 def test_release_contains_fastbackup_runtime_without_tests(tmp_path):
     archive = build(ROOT, tmp_path / 'release', allow_dirty=True)
-    tracked = subprocess.check_output(['git', 'ls-files', '-z', 'app/fastbackup', 'fastbackup'], cwd=ROOT).decode().split('\0')
+    tracked = subprocess.check_output(['git', 'ls-files', '-z', 'app/fastbackup'], cwd=ROOT).decode().split('\0')
     runtime = {name for name in tracked if name.endswith('.py') and '/tests/' not in name}
-    assert 'fastbackup/__main__.py' in runtime
     assert 'app/fastbackup/__main__.py' in runtime
     assert 'app/fastbackup/capture.py' in runtime
     assert 'app/fastbackup/copy_worker.py' in runtime
     with zipfile.ZipFile(archive) as package:
         names = set(package.namelist())
         assert {'FamilyFoto/' + name for name in runtime} <= names
-        assert not any(name.startswith('FamilyFoto/fastbackup/tests/') for name in names)
+        assert not any(name.startswith('FamilyFoto/fastbackup/') for name in names)
         assert not any(name.startswith('FamilyFoto/app/fastbackup/tests/') for name in names)
-        assert not any(name.startswith('FamilyFoto/fastbackup/') and not name.endswith('.py') for name in names)
         manifest = json.loads(package.read('FamilyFoto/release-manifest.json'))
         assert runtime <= manifest['files'].keys()
         package.extractall(tmp_path / 'extracted')
     extracted = tmp_path / 'extracted/FamilyFoto'
-    for module in ('app.fastbackup', 'fastbackup'):
-        result = subprocess.run([sys.executable, '-m', module, '--help'], cwd=extracted,
-                                capture_output=True, text=True, timeout=30)
-        assert result.returncode == 0, result.stderr
-        assert 'cleanup-incomplete' in result.stdout
+    result = subprocess.run([sys.executable, '-E', '-s', '-B', '-m', 'app.fastbackup', '--help'],
+                            cwd=extracted, capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    assert 'cleanup-incomplete' in result.stdout
+    config = tomllib.loads((ROOT / 'pyproject.toml').read_text())
+    assert 'fastbackup' not in config['tool']['familyfoto']['entrypoints']['modules']
+    assert 'app.fastbackup' in config['tool']['familyfoto']['entrypoints']['modules']
 
 
 def test_packaged_fast_worker_imports_without_source_checkout(tmp_path):

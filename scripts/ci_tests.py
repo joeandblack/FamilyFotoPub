@@ -68,12 +68,12 @@ def plan(paths, full=False):
                   or path in ('pyproject.toml', 'pytest.ini', 'tests/conftest.py', 'scripts/ci_tests.py', 'tests/test_ci_tests.py'))
         if common:
             result = dict.fromkeys(result, True)
-        if path.startswith(('app/', 'face_detect/', 'databases/', 'config/', 'installer/', 'scripts/', 'fastbackup/')) or path in database_modules():
+        if path.startswith(('app/', 'face_detect/', 'databases/', 'config/', 'installer/', 'scripts/')) or path in database_modules():
             result['database'] = True
         if path.startswith(('installer/macos/', 'installer/common/', 'app/backup/', 'app/migration/')) or path in (
                 'tests/test_mac_launcher.py', 'tests/test_macos_setup_window.py', 'app/config.py'):
             result['swift'] = True
-        if path.startswith(('app/backup/', 'app/fastbackup/', 'app/storage/', 'app/migration/', 'fastbackup/', 'installer/macos/', 'installer/common/')) or path in (
+        if path.startswith(('app/backup/', 'app/fastbackup/', 'app/storage/', 'app/migration/', 'installer/macos/', 'installer/common/')) or path in (
                 'tests/test_backup_capture_retry.py', 'tests/test_backup_restore_remount.py',
                 'tests/test_macos_native_media.py'):
             result['apfs'] = True
@@ -84,7 +84,7 @@ def plan(paths, full=False):
                     result[group] = True
         # Unknown new areas default to full qualification, not an accidental bypass.
         if ('/' not in path and Path(path).suffix in ('.py', '.sh', '.ps1')) or ('/' in path and not path.startswith(('app/', 'face_detect/', 'databases/', 'config/', 'installer/',
-                                                'scripts/', 'tests/', 'fastbackup/', 'web/', 'docs/', '.github/'))):
+                                                'scripts/', 'tests/', 'web/', 'docs/', '.github/'))):
             result = dict.fromkeys(result, True)
     return result
 

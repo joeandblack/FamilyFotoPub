@@ -31,7 +31,7 @@ distribution = "application-directory"
 [tool.familyfoto.entrypoints]
 asgi = ["app.api:app"]
 modules = [
-  "app.fastbackup", "fastbackup",
+  "app.fastbackup",
   "app.backup", "app.backup.verify", "app.backup.state_files", "app.backup.manage", "app.backup.admin_runner", "app.backup.admin_restore",
   "app.migration.preview_server", "app.migration.launch",
   "app.service.server", "app.service.desktop", "app.service.macos", "app.service.live",

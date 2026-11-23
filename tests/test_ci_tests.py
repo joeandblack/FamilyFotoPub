@@ -17,7 +17,6 @@ from scripts.ci_tests import ROOT, database_modules, group_for, plan, shard_for
     (['databases/038.sql'], {'database'}),
     (['installer/macos/SetupWindow.swift'], {'database', 'swift', 'apfs'}),
     (['app/backup/media_tree.py'], {'database', 'swift', 'apfs'}),
-    (['fastbackup/capture.py'], {'database', 'apfs'}),
     (['app/fastbackup/capture.py'], {'database', 'apfs'}),
     (['tests/test_backup_restore_remount.py'], {'apfs'}),
     (['requirements.txt'], {'database', 'swift', 'apfs'}),
