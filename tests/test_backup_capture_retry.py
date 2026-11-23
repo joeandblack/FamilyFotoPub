@@ -1,6 +1,8 @@
 """Whole-library capture retry: reuse only verified work, and never publish early."""
 from contextlib import closing, contextmanager
 import hashlib
+import errno
+import time
 import io
 import json
 import os
@@ -823,7 +825,35 @@ def attach(image, mount):
 
 
 def detach(mount):
-    subprocess.run(['hdiutil', 'detach', str(mount), '-force'], check=True, capture_output=True)
+    # Disk Arbitration can briefly retain the test image after filesystem I/O.
+    # Retry only EBUSY, with a bounded retry count; never ignore failed cleanup or identity checks.
+    for attempt in range(5):
+        try:
+            subprocess.run(['hdiutil', 'detach', str(mount), '-force'], check=True, capture_output=True)
+            return
+        except subprocess.CalledProcessError as error:
+            if error.returncode != errno.EBUSY or attempt == 4:
+                raise
+            time.sleep(0.25 * (attempt + 1))
+
+
+@pytest.mark.parametrize('codes,raises', [([16, 0], False), ([16] * 5, True), ([1], True)])
+def test_disk_image_cleanup_retries_only_transient_busy(monkeypatch, codes, raises):
+    remaining = iter(codes)
+    calls = []
+    def run(command, **kwargs):
+        calls.append(command)
+        code = next(remaining)
+        if code:
+            raise subprocess.CalledProcessError(code, command)
+    monkeypatch.setattr(subprocess, 'run', run)
+    monkeypatch.setattr(time, 'sleep', lambda delay: None)
+    if raises:
+        with pytest.raises(subprocess.CalledProcessError):
+            detach('fixture-mount')
+    else:
+        detach('fixture-mount')
+    assert len(calls) == len(codes)
 
 
 def new_image(path, name):
@@ -832,6 +862,7 @@ def new_image(path, name):
 
 
 @pytest.mark.skipif(sys.platform != 'darwin', reason='Detaches and reattaches real APFS disk images')
+@pytest.mark.ci_apfs
 def test_real_apfs_remount_resumes_and_a_replacement_disk_is_refused(world):
     media_image, backup_image, filler_image, other_image = (
         world.tmp / f'{name}.dmg' for name in ('media', 'backup', 'filler', 'other'))

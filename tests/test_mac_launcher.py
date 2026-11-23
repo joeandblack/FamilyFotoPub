@@ -230,6 +230,7 @@ def test_descriptor_rules(changes):
 
 @pytest.mark.skipif(not SWIFT, reason='building the app needs Apple Silicon macOS with swiftc')
 @pytest.mark.skipif(SWIFT and not MACOS_27, reason='the built app runs only on macOS 27 or newer')
+@pytest.mark.ci_swift
 def test_built_app_is_signed_and_its_check_verifies_the_bootstrap(tmp_path, monkeypatch):
     """Build the real app with an offline fixture bundle and run its headless `--check`."""
     manifest, engine, _ = offline_release(tmp_path)
@@ -268,6 +269,7 @@ def test_built_app_is_signed_and_its_check_verifies_the_bootstrap(tmp_path, monk
 
 
 @pytest.mark.skipif(not SWIFT, reason='the Swift launcher tests need Apple Silicon macOS with swiftc')
+@pytest.mark.ci_swift
 def test_swift_launcher_unit_tests(tmp_path):
     binary = tmp_path / 'launcher-tests'
     subprocess.run(['/usr/bin/swiftc', '-parse-as-library', '-D', 'LAUNCHER_TEST', '-module-cache-path', str(tmp_path / 'cache'),

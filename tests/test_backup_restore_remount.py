@@ -209,6 +209,7 @@ def test_same_job_only_forgives_the_named_device():
 
 @pytest.mark.skipif(sys.platform != 'darwin', reason='Detaches and reattaches real APFS disk images')
 @each_job
+@pytest.mark.ci_apfs
 def test_real_apfs_remount_resumes_and_a_replacement_disk_is_refused(tmp_path, monkeypatch, make):
     image, filler, other = (tmp_path / f'{name}.dmg' for name in ('target', 'filler', 'other'))
     for path in (image, filler, other):
