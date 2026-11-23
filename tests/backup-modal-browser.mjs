@@ -1,6 +1,6 @@
 import {chromePath} from './chrome.mjs';
 import {createServer} from 'node:http';
-import {readFileSync,mkdtempSync,existsSync,writeFileSync,mkdirSync} from 'node:fs';
+import {readFileSync,mkdtempSync,existsSync,writeFileSync,mkdirSync,readdirSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {spawn} from 'node:child_process';
 import assert from 'node:assert/strict';
@@ -11,6 +11,11 @@ let startCount=0,statusFailures=2,rejectStart=false,rejectPlan=false,log='first 
 let offline=false,appRequests=[],holdStatus=false,releaseStatus=null;
 let run={id:'fixture',authorized:true,state:'capturing',finished:false,copy_strategy:'fast-full',directory:'F:/test-backup',progress:{phase:'media-transfer',state:'running',elapsed_seconds:12,files:2,total_files:4,bytes:1024,total_bytes:2048}};
 const files=new Set(['backup-state.mjs','backup-progress.html','backup-progress.mjs','backup-settings.mjs','confirm-dialog.mjs','size.mjs','styles.css','familyfoto.ico','daisyui-5.7.50.css']);
+// Build the asset map from local files, never from a request path.
+const assets=new Map();
+for(const directory of ['web','face_detect/web'])for(const entry of readdirSync(directory,{withFileTypes:true})){
+ if(entry.isFile()&&/\.(?:m?js|css|ico)$/.test(entry.name))assets.set('/'+directory+'/'+entry.name,readFileSync(join(directory,entry.name)));
+}
 const server=createServer(async(req,res)=>{
  const json=(value,status=200)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(value));};
  if(req.url==='/application'){res.setHeader('Content-Type','text/html');res.end(readFileSync(resolve('web/index.html')));return;}
@@ -37,8 +42,8 @@ const server=createServer(async(req,res)=>{
  if(req.url.startsWith('/api/backup-run/log')){const after=Number(new URL(req.url,'http://local').searchParams.get('after'));json({text:log.slice(after),next:log.length});return;}
  if(req.url==='/api/backup-run/decision'){let body='';for await(const chunk of req)body+=chunk;decisions.push(JSON.parse(body).action);json({ok:true});return;}
  if(req.url.startsWith('/api/')){json({items:[],stats:{total:0,bytes:0},years:[],page:1,pages:1,total:0,accounts:[],patterns:[],source:'fixture',destination:'fixture',revision:'fixture'});return;}
- if(/^\/(?:web|face_detect\/web)\/[a-zA-Z0-9._-]+\.(?:m?js|css|ico)$/.test(req.url)&&existsSync(resolve(req.url.slice(1)))){
-  res.setHeader('Content-Type',/\.m?js$/.test(req.url)?'text/javascript':req.url.endsWith('.css')?'text/css':'image/x-icon');res.end(readFileSync(resolve(req.url.slice(1))));return;
+ if(assets.has(req.url)){
+  res.setHeader('Content-Type',/\.m?js$/.test(req.url)?'text/javascript':req.url.endsWith('.css')?'text/css':'image/x-icon');res.end(assets.get(req.url));return;
  }
  const name=req.url==='/backup-progress'?'backup-progress.html':req.url.replace(/^\/web\//,'');
  if(!files.has(name)){res.writeHead(404);res.end();return;}

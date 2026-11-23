@@ -100,7 +100,7 @@ def test_only_the_restore_child_gets_the_frame(tmp_path):
             + ") ([FamilyFotoSetupRun]::Frame('correct horse battery staple')); 'exit ' + $code")
     result = run_powershell(code, b'')
     assert result.returncode == 0, result.stderr
-    assert result.stdout.decode().split() == ['child', 'True', 'grandchild', '0', 'exit', '0']
+    assert result.stdout.decode().split() == ['child', 'True', 'grandchild', '0', 'exit', '0'], result.stderr.decode(errors='replace')
     assert b'horse' not in result.stdout + result.stderr
 
 
@@ -142,7 +142,7 @@ def test_install_never_passes_the_password_as_an_argument():
 
 def test_the_temporary_runtime_is_pinned_and_registers_nothing():
     source = (WINDOWS / 'setup-password.ps1').read_text()
-    for pinned in ('cryptography==44.0.3', 'cffi==2.1.1', '--require-hashes', '--no-index', '--no-cache-dir', '--isolated',
+    for pinned in ('cryptography==50.0.0', 'cffi==2.1.1', '--require-hashes', '--no-index', '--no-cache-dir', '--isolated',
                    '--only-binary', 'Expand-PrivatePythonRuntime', '$PythonNuGetSha256'):
         assert pinned in source, pinned
     assert 'python-3.12' not in source.lower() and '.exe' not in source.replace('python.exe', '')  # No python.org installer.
@@ -264,7 +264,8 @@ def test_progress_lines_are_understood(line, expected):
 
 # The runner.
 
-def test_the_runner_passes_the_password_on_standard_input_and_reads_all_output(tmp_path):
+@pytest.mark.parametrize('password', ['secret password!', '秘密 Bibliothèque!'])
+def test_the_runner_passes_the_password_on_standard_input_and_reads_all_output(tmp_path, password):
     child = tmp_path / 'child.py'
     child.write_text(
         'import sys, os\n'
@@ -279,18 +280,18 @@ def test_the_runner_passes_the_password_on_standard_input_and_reads_all_output(t
     log = tmp_path / 'run.log'
     code = (f"Add-Type -Path {literal(WINDOWS / 'setup-run.cs')}; $r = New-Object FamilyFotoSetupRun; "
             f"$r.Start({literal(sys.executable)}, [string[]]@({literal(child)}, 'D:\\with space\\', 'plain'), "
-            f"{literal(tmp_path)}, 'secret password!', {literal(log)}); "
+            f"{literal(tmp_path)}, {literal(password)}, {literal(log)}); "
             "while (-not $r.Finished) { Start-Sleep -Milliseconds 100 }; Start-Sleep -Milliseconds 200; $r.Close(); "
             "$lines = @(); $line = $null; while ($r.Lines.TryDequeue([ref]$line)) { $lines += $line }; "
             "'exit=' + $r.ExitCode; $lines")
     result = powershell(code)
     assert result.returncode == 0, result.stderr
     out = result.stdout
-    assert 'exit=3' in out and 'got 16 characters' in out
+    assert 'exit=3' in out and f'got {len(password)} characters' in out
     assert "args ['D:\\\\with space\\\\', 'plain']" in out  # A trailing backslash survives the quoting.
     assert 'encoding utf-8' in out and '! a problem' in out
     text = log.read_text(encoding='utf-8')
-    assert '名前 Bibliothèque' in text and 'secret password' not in text and 'secret password' not in out
+    assert '名前 Bibliothèque' in text and password not in text and password not in out
 
 
 # The restore's progress lines.

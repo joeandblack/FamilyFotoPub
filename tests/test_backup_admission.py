@@ -110,6 +110,12 @@ def test_process_crash_releases_os_lock_but_preserves_maintenance(tmp_path, mode
         pass
 
 
+def sddl_names(sid):
+    """How icacls /save may write this account: its SID, or the SDDL alias of a built-in one
+    (the GitHub Windows runner runs as the built-in Administrator, saved as LA)."""
+    return {sid} | ({'LA'} if sid.endswith('-500') else set()) | ({'LG'} if sid.endswith('-501') else set())
+
+
 @pytest.mark.skipif(os.name != 'nt', reason='Windows ACLs')
 def test_lease_grants_installer_account_on_gate_and_private_job(tmp_path):
     import csv
@@ -122,4 +128,5 @@ def test_lease_grants_installer_account_on_gate_and_private_job(tmp_path):
         for path in (gate, job, job / 'copy.lock'):
             saved = tmp_path / 'acl'
             subprocess.run(['icacls', path, '/save', saved], check=True)
-            assert f';FA;;;{sid})' in saved.read_text(encoding='utf-16-le')
+            acl = saved.read_text(encoding='utf-16-le')
+            assert any(f';FA;;;{name})' in acl for name in sddl_names(sid)), acl

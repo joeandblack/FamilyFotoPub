@@ -3,8 +3,6 @@ import sqlite3
 import pytest
 from tests.backup_keys import backup_key
 
-KEY = backup_key()
-
 from app.backup import media_inventory
 from app.backup.library_restore import authenticated_digests, equivalent_inventories, restore_library
 from app.backup.encrypted import InvalidArtifact
@@ -12,6 +10,9 @@ from app.backup.media_copy import InvalidCopy
 from app.backup.media_inventory import capture_media_inventory
 from app.backup.media_tree import copy_media_tree
 from app.backup.postgres import Endpoint
+
+
+KEY = backup_key()
 
 
 def inventory(path, rows):

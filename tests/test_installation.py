@@ -18,16 +18,21 @@ verify = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(verify)
 
 
-@pytest.mark.parametrize('password,valid', [('test-only-password-123', True), ('short', False), ('', False)])
-def test_unattended_password_is_hashed_not_logged(monkeypatch, tmp_path, capsys, password, valid):
+@pytest.mark.parametrize('bom', [b'', b'\xef\xbb\xbf'])
+@pytest.mark.parametrize('password,valid', [('test-only-password-123', True),
+                                         ('Grüße-東京-🔑-password', True), ('short', False), ('', False)])
+def test_unattended_password_is_hashed_not_logged(monkeypatch, tmp_path, capsys, password, valid, bom):
     from installer import configure
     monkeypatch.setattr(configure, 'ROOT', tmp_path)
     monkeypatch.setattr(sys, 'argv', ['configure.py', '--password-stdin'])
-    monkeypatch.setattr(sys, 'stdin', io.StringIO(password + '\n'))
+    # The byte protocol is UTF-8 even when Windows exposes a legacy text wrapper.
+    payload = bom + (password + '\r\n').encode('utf-8')
+    monkeypatch.setattr(sys, 'stdin', io.TextIOWrapper(io.BytesIO(payload), encoding='cp1252'))
     if valid:
         configure.main()
         config = json.loads((tmp_path / 'config/local.json').read_text())
-        assert config['browser_password_hash']
+        from app.auth import verify_password
+        assert verify_password({'password_hash': config['browser_password_hash']}, password)
         assert password not in (tmp_path / 'config/local.json').read_text()
         assert password not in capsys.readouterr().out
         assert config['source'] == config['destination'] == {}
@@ -86,7 +91,8 @@ def test_sandbox_package_excludes_private_files(tmp_path, automated):
     package = config_path.parent / 'input/FamilyFoto'
     assert not (package / 'config/local.json').exists()
     assert not (package / 'data').exists()
-    assert (package / 'installer/windows/prepare-sandbox-test.ps1').exists()
+    assert (package / 'installer/windows/prepare-sandbox-test.ps1').exists(), (
+        sum(1 for _ in package.rglob('*')), result.stdout[-2000:], result.stderr[-2000:])
     assert (package / 'face_detect/api/service.py').exists()
     assert (package / 'face_detect/web/automatic-people-preview.mjs').exists()
     assert (package / 'installer/native_people.py').read_bytes() == (ROOT / 'installer/native_people.py').read_bytes()
@@ -175,7 +181,7 @@ def powershell(code):
         pytest.skip('Windows PowerShell helper test')
     encoded = base64.b64encode(code.encode('utf-16le')).decode()
     return subprocess.run(['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass',
-                           '-EncodedCommand', encoded], capture_output=True, text=True, timeout=30)
+                           '-EncodedCommand', encoded], capture_output=True, text=True, errors='replace', timeout=30)
 
 
 def literal(path):

@@ -256,8 +256,8 @@ def status_app(run, cookie=COOKIE):
             return JSONResponse({'error': 'Only the browser that started this backup can see its log'}, 403)
         try:
             return JSONResponse(read_activity(run.value['id'], after), headers={'Cache-Control': 'no-store'})
-        except ValueError as error:
-            return JSONResponse({'error': str(error)}, 422)
+        except ValueError:
+            return JSONResponse({'error': 'Invalid log position'}, 422)
 
     @app.get('/web/{name}')
     def asset(name: str):

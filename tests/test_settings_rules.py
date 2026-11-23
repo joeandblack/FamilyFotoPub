@@ -9,8 +9,10 @@ from app.migration.settings_rules import RULES, UnknownSetting, merge
 
 ROOT = Path(__file__).resolve().parents[1]
 # Keys read from dictionaries that happen to be called cfg or config but aren't local.json:
-# face profiles, People pilot settings, storage bindings.
-NOT_SETTINGS = {'pilot', 'root', 'profiles', 'platform_defaults', 'dbname', 'active_profile'}
+# face profiles, People pilot settings, storage bindings, and the setup launcher's bootstrap.json
+# (installer/*/online_setup.py reads its `mode` and `schema_version`).
+NOT_SETTINGS = {'pilot', 'root', 'profiles', 'platform_defaults', 'dbname', 'active_profile',
+                'mode', 'schema_version'}
 
 
 def restored():
