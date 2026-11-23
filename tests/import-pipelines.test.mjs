@@ -77,6 +77,7 @@ const button=row=>row.children[0].children.find(e=>e.tag==='button');
 
 test('fast conversion labels playback review and shows the current phase',()=>{
  const container=fixture(),item=batch(1),reviewed=[];
+ item.stages.conversion={done:1,pending:1};
  item.conversion_status={state:'running',current_step:'Publishing MP4',execution_policy:{retained_original_validation:'quick'}};
  renderPipelines(container,[item],{busy:true,job_id:1,stage:'conversion'},{command(){},options(){},reviewPlayback:batch=>reviewed.push(batch.id)});
  const text=rows(container.children[0])[2].children.map(e=>e.textContent||'').join(' ');

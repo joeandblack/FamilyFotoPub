@@ -161,7 +161,8 @@ creating MP4, validating, publishing).
 - Catalog publication commits before any cleanup. With AVI cleanup enabled, both MP4 and AVI
   hashes are checked again before removing only the enrolled destination AVI. A crash after
   publication retries cleanup; a crash after deletion recognises the published MP4.
-- FLV and MTS destination originals are always kept, whatever the AVI setting.
+- FLV and MTS destination originals are always kept, whatever the AVI setting. Any kept original
+  can be deleted later from [playback review](#playback-review-and-retained-originals).
 - Warnings keep the original. A missing converted MP4 needs manual review; the AVI is never
   substituted automatically. Source-disk files are never modified, and conversion never changes
   import success counts.
@@ -170,13 +171,21 @@ creating MP4, validating, publishing).
 
 ## Playback review and retained originals
 
-An import's **Review playback** link opens a gallery of its converted videos whose managed
-originals are still kept, including ones previously marked reviewed. It shows 100 thumbnails
-per page; click one to play the MP4. Opening or playing never deletes anything.
+An import's **Review playback** link (on any conversion with finished items) opens a gallery of
+its converted videos whose managed AVI, FLV or MTS original is still on the destination disk:
+quick-validated MTS/FLV waiting for a playback check, fully validated conversions, AVI kept with
+cleanup off, and conversions made before validation was recorded. The server lists only originals
+that exist, so AVIs already removed by cleanup don't appear, and a
+[recovery hold](#recovery) keeps its item out of the list. It shows 100 thumbnails per page;
+click one to play the MP4. Opening or playing never deletes anything.
 
 Select videos (or Select all, across pages) and choose **Delete retained originals**. This needs
 an administrator and a confirmation, verifies both the MP4 and the original, and removes only the
-managed retained copy, never a source-folder file. Progress shows the filename and count. A
+managed retained copy, never a source-folder file. The catalog keeps the original's name, size and
+SHA-256 (`media.sha256`), so importing the same file again is still recorded as a duplicate, and
+the deletion receipt (`original_deleted_at`) lets backups accept the missing original. The MP4 is
+lossy: after deletion the library can't convert that item again, and only the import source keeps
+full quality. Progress shows the filename and count. A
 durable deletion intent makes an interrupted request retryable. Unselected or failed items stay
 listed. Permanent deletion from Trash is a separate operation that can also remove retained
 originals.
