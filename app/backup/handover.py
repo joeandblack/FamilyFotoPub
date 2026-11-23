@@ -1,4 +1,4 @@
-"""Bundle the Mac restore launcher and instructions with a plain-media backup."""
+"""Write the Mac restore instructions, and for source installations the launcher, into a backup."""
 from pathlib import Path
 import logging
 import os
@@ -11,7 +11,10 @@ from .windows_handover import RECEIPT, read_release, write_windows_handover
 
 FOLDER = 'restore-on-mac'
 SOURCE = Path(__file__).resolve().parents[2] / 'installer/macos/handover'
-FILES = ('README.txt', 'restore-familyfoto-mac.command')
+FILES = ('README.txt',)
+# The Terminal launcher (Homebrew, Git) for installations made from source, which have no
+# release to name. A release installation's backups use FamilyFoto Setup (RELEASE.txt) instead.
+LAUNCHER = 'restore-familyfoto-mac.command'
 # Written only when this installation came from a shared-installer release.
 RELEASE = 'RELEASE.txt'
 
@@ -53,8 +56,8 @@ def release_text(release):
         'Do not open it if they differ. The app is not notarized by Apple: approve it once in\n'
         'System Settings, Privacy & Security, Open Anyway, only after the checksum matches.\n\n'
         'Open FamilyFoto Setup, choose Restore from a backup, select this backup folder\n'
-        '(the parent of restore-on-mac), then enter the FamilyFoto administrator password used\n'
-        'when this backup was made. Do not run programs merely because they are on this disk.\n'
+        '(the parent of restore-on-mac), then in the next window enter the FamilyFoto administrator\n'
+        'password used when this backup was made. Do not run programs merely because they are on this disk.\n'
         'For an offline restore, use the matching offline disk image obtained separately.\n\n'
         'Resume an interrupted restore from its installation folder:\n'
         '  bash installer/macos/install.sh restore\n'
@@ -87,7 +90,12 @@ def write_handover(backup, receipt_path=None):
     folder.mkdir(exist_ok=True)
     directory_identity(folder)
     for name in FILES:
-        _publish(folder, name, (SOURCE / name).read_bytes(), 0o700 if name.endswith('.command') else 0o600)
-    write_release(folder, receipt_path)
+        _publish(folder, name, (SOURCE / name).read_bytes(), 0o600)
+    if write_release(folder, receipt_path):
+        # A retry must not keep the source launcher beside the release's instructions.
+        _regular_or_absent(folder / LAUNCHER)
+        (folder / LAUNCHER).unlink(missing_ok=True)
+    else:
+        _publish(folder, LAUNCHER, (SOURCE / LAUNCHER).read_bytes(), 0o700)
     sync_directory(folder)
     write_windows_handover(backup, receipt_path)

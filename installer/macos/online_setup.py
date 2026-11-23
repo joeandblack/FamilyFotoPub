@@ -1,9 +1,10 @@
 """Mac launcher engine: admission, downloads with progress, then the Mac adapter.
 
 FamilyFoto Setup.app (installer/macos/launcher) runs this with the bootstrap Python after the
-user accepted the agreement and chose an installation folder. It prints `@@ {json}` progress
-lines (installer/common/README.md, "Events") for the app's window, then hands over to
-`installer/macos/install.sh install`, which opens the release's prebuilt setup window.
+user accepted the agreement and chose an installation folder, and for a restore the backup.
+It prints `@@ {json}` progress lines (installer/common/README.md, "Events") for the app's window,
+then hands over to `installer/macos/install.sh install` (or `restore`, with the backup chosen),
+which opens the release's prebuilt setup window.
 """
 import argparse
 import json
@@ -26,14 +27,60 @@ PLATFORM = shared_adapter.PLATFORM
 
 
 def read_choices(path):
-    """The app's answers. Validated here too: the engine never trusts the UI blindly."""
+    """The app's answers. Validated here too: the engine never trusts the UI blindly.
+
+    Returns (root, people, agreement digest, backup); backup is None for a new library."""
     choices = json.loads(Path(path).read_text(encoding='utf-8'))
     root = Path(choices['root'])
     if not root.is_absolute() or '\n' in str(root):
         raise ValueError('Choose an absolute installation folder')
     if not isinstance(choices.get('people'), bool) or not isinstance(choices.get('agreement_digest'), str):
         raise ValueError('Invalid setup choices')
-    return root, choices['people'], choices['agreement_digest']
+    backup = choices.get('backup')
+    if backup is not None:
+        backup = check_backup(backup, root)
+    return root, choices['people'], choices['agreement_digest'], backup
+
+
+def check_backup(value, root):
+    """A restore's backup folder, refused before anything is downloaded.
+
+    The setup window checks the password and the library folder; this only makes sure the folder
+    is a FamilyFoto backup and is kept apart from the installation folder."""
+    if not isinstance(value, str) or '\n' in value or not Path(value).is_absolute():
+        raise ValueError('Choose the backup folder: the folder the backup page made')
+    backup = Path(os.path.abspath(value))
+    if not backup.is_dir() or not (backup / 'catalog').is_dir():
+        raise ValueError(f'{backup} is not a FamilyFoto backup folder: it has no catalog. Nothing was downloaded.')
+    if overlaps(backup, Path(os.path.abspath(root))):
+        raise ValueError('Choose an installation folder outside the backup folder. Nothing was downloaded.')
+    return backup
+
+
+def existing_chain(path):
+    """Stats of the folder itself if it exists, then of each existing parent."""
+    chain = []
+    for folder in (path, *path.parents):
+        try:
+            chain.append(folder.stat())
+        except OSError:
+            continue
+    return chain
+
+
+def overlaps(backup, target):
+    """True if either folder is, or is inside, the other, compared by identity on disk.
+
+    Spellings are not enough: a link, a second spelling on a case-insensitive disk or a mount
+    can name the same folder. So both paths are resolved to where they really are, and every
+    existing folder up each one is compared by device and inode with the other's end."""
+    backup, target = Path(os.path.realpath(backup)), Path(os.path.realpath(target))
+    backup_stat = backup.stat()
+    chain = existing_chain(target)
+    if any(os.path.samestat(folder, backup_stat) for folder in chain):
+        return True  # the installation folder is the backup or inside it
+    # The backup inside an existing installation folder (the first link of its chain is itself).
+    return target.exists() and any(os.path.samestat(folder, chain[0]) for folder in existing_chain(backup))
 
 
 def admit(manifest, root, features, os_version):
@@ -77,7 +124,7 @@ def main(argv=None):
         raise ValueError('Unknown bootstrap descriptor')
     manifest = read_manifest(ENGINE / 'installer-manifest.json', config['manifest_sha256'])
     agreement = plain_path(ENGINE / manifest.document['agreement_path']).read_bytes()
-    root, people, accepted = read_choices(a.choices)
+    root, people, accepted, backup = read_choices(a.choices)
     features = ['core'] + (['people'] if people else [])
     shared_adapter.require_minimum_os(manifest)
     admit(manifest, root, features, a.os_version)
@@ -92,10 +139,10 @@ def main(argv=None):
     if a.prepare_only:
         return 0
     env = {'FAMILYFOTO_LAUNCHER': '1'}
-    if os.environ.get('FAMILYFOTO_RESTORE_BACKUP'):
-        env['FAMILYFOTO_RESTORE_BACKUP'] = os.environ['FAMILYFOTO_RESTORE_BACKUP']
-    return shared_adapter.handoff(root, 'install', receipt, env)
-
+    if backup is not None:
+        # The setup window opens as a restore with this backup filled in.
+        env['FAMILYFOTO_RESTORE_BACKUP'] = str(backup)
+    return shared_adapter.handoff(root, 'install' if backup is None else 'restore', receipt, env)
 
 if __name__ == '__main__':
     try:

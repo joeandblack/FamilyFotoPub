@@ -119,6 +119,29 @@ struct LauncherTests {
         let left = try FileManager.default.contentsOfDirectory(atPath: base.path).sorted()
         assert(left == ["engine.zip", "session-notauuid"], "\(left)")
         try FileManager.default.removeItem(at: base)
+        // Restore: only a folder holding catalog, kept apart from the installation folder.
+        let disk = FileManager.default.temporaryDirectory.appendingPathComponent("launcher-backup-\(getpid())")
+        let backup = disk.appendingPathComponent("backup one")
+        try FileManager.default.createDirectory(at: backup.appendingPathComponent("catalog"), withIntermediateDirectories: true)
+        let home = "/Users/someone/FamilyFoto"
+        assert(Bootstrap.backupProblem(backup.path, installFolder: home) == nil)
+        assert(Bootstrap.backupProblem("", installFolder: home)!.contains("Choose the backup"))
+        assert(Bootstrap.backupProblem(disk.path, installFolder: home)!.contains("not a FamilyFoto backup"))
+        assert(Bootstrap.backupProblem(backup.path, installFolder: backup.appendingPathComponent("FamilyFoto").path)!.contains("outside"))
+        assert(Bootstrap.backupProblem(backup.path, installFolder: disk.path)!.contains("outside"))
+        assert(Bootstrap.backupProblem(backup.path, installFolder: backup.path)!.contains("outside"))
+        // Aliases: a link to the backup or to a folder inside it, and another capitalisation.
+        try FileManager.default.createDirectory(at: backup.appendingPathComponent("sub"), withIntermediateDirectories: true)
+        let toBackup = disk.appendingPathComponent("to-backup"), toSub = disk.appendingPathComponent("to-sub")
+        try FileManager.default.createSymbolicLink(at: toBackup, withDestinationURL: backup)
+        try FileManager.default.createSymbolicLink(at: toSub, withDestinationURL: backup.appendingPathComponent("sub"))
+        assert(Bootstrap.backupProblem(backup.path, installFolder: toBackup.appendingPathComponent("new").path)!.contains("outside"))
+        assert(Bootstrap.backupProblem(backup.path, installFolder: toSub.appendingPathComponent("new").path)!.contains("outside"))
+        assert(Bootstrap.backupProblem(toBackup.path, installFolder: backup.appendingPathComponent("new").path)!.contains("outside"))
+        let otherCase = disk.appendingPathComponent("BACKUP ONE").appendingPathComponent("new").path
+        assert(Bootstrap.backupProblem(backup.path, installFolder: otherCase)!.contains("outside"))  // APFS is case-insensitive
+        assert(Bootstrap.backupProblem(toBackup.path, installFolder: disk.appendingPathComponent("FamilyFoto").path) == nil)
+        try FileManager.default.removeItem(at: disk)
         print("launcher tests passed")
     }
 }

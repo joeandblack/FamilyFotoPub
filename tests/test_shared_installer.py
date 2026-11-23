@@ -55,6 +55,43 @@ def test_release_pinning_and_platform():
         manifest().plan(['core'], 'macos-arm64')
 
 
+MAC_SETUP = 'https://github.com/joeandblack/FamilyFotoPub/releases/download/mac-1/FamilyFotoSetup.dmg'
+
+
+def test_windows_release_records_the_mac_setup_for_its_backups(tmp_path):
+    archive = tmp_path / 'app.zip'
+    with zipfile.ZipFile(archive, 'w') as out:
+        out.writestr('installer/windows/install.ps1', 'trusted code')
+    doc = document([component('application', archive.read_bytes())])
+    doc['features']['core'] = ['application']
+    doc['setup_url'] = 'https://github.com/joeandblack/FamilyFotoPub/releases/download/test-1/FamilyFotoSetup.exe'
+    doc['mac_handover'] = {'release_id': 'mac-1', 'setup_url': MAC_SETUP}
+    target = tmp_path / 'app'
+    stage_application(manifest(doc), {'paths': {'application': str(archive)}}, target)
+    marker = json.loads((target / '.shared-installer-release.json').read_text())
+    assert marker['mac_handover'] == {'release_id': 'mac-1', 'setup_url': MAC_SETUP}
+    assert marker['windows_handover']['setup_url'] == doc['setup_url']
+
+
+@pytest.mark.parametrize('mac', [{'release_id': 'mac-1', 'setup_url': MAC_SETUP.replace('.dmg', '.exe')},
+                                 {'release_id': 'mac-2', 'setup_url': MAC_SETUP},
+                                 {'release_id': 'mac-1'}, 'not a record',
+                                 {'release_id': 'mac-1', 'setup_url': MAC_SETUP, 'extra': 1}])
+def test_mac_handover_link_must_name_the_official_dmg(mac):
+    doc = document()
+    doc['mac_handover'] = mac
+    with pytest.raises(ValueError):
+        manifest(doc)
+
+
+def test_only_windows_releases_carry_a_separate_mac_handover():
+    doc = document()
+    doc['platform'] = 'macos-arm64'
+    doc['mac_handover'] = {'release_id': 'mac-1', 'setup_url': MAC_SETUP}
+    with pytest.raises(ValueError, match='Mac handover'):
+        manifest(doc)
+
+
 def test_mac_manifest_accepts_dmg_link_only():
     doc = document()
     doc['platform'] = 'macos-arm64'

@@ -953,14 +953,16 @@ def test_capture_packs_mac_handover_and_resumes_after_packaging_interruption(wor
         assert (world.backup / FOLDER / name).read_bytes() == (SOURCE / name).read_bytes()
 
 
-def test_handover_retry_refuses_linked_launcher(world):
-    from app.backup.handover import FILES, FOLDER, write_handover
+@pytest.mark.parametrize('name', ['README.txt', 'restore-familyfoto-mac.command'])
+def test_handover_retry_refuses_linked_launcher(world, name):
+    from app.backup.handover import FILES, FOLDER, LAUNCHER, write_handover
+    assert name in FILES + (LAUNCHER,)
     world.backup.mkdir()
     folder = world.backup / FOLDER
     folder.mkdir()
     original = world.tmp / 'keep.txt'
     original.write_text('keep this file')
-    os.link(original, folder / FILES[1])
+    os.link(original, folder / name)
     with pytest.raises(ValueError, match='Linked'):
         write_handover(world.backup)
     assert original.read_text() == 'keep this file'

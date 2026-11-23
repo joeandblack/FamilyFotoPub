@@ -69,13 +69,16 @@ def offline_release(tmp_path, people=False):
     return manifest, engine, descriptor
 
 
-def choices(tmp_path, root, people=False, accepted=None):
+def choices(tmp_path, root, people=False, accepted=None, backup=None):
     path = tmp_path / 'choices.json'
-    path.write_text(json.dumps({'root': str(root), 'people': people, 'agreement_digest': accepted or digest(TERMS)}))
+    value = {'root': str(root), 'people': people, 'agreement_digest': accepted or digest(TERMS)}
+    if backup is not None:
+        value['backup'] = str(backup)
+    path.write_text(json.dumps(value))
     return path
 
 
-def run_engine(tmp_path, monkeypatch, root, *extra, people=False, accepted=None):
+def run_engine(tmp_path, monkeypatch, root, *extra, people=False, accepted=None, backup=None):
     tmp_path.mkdir(parents=True, exist_ok=True)
     manifest, engine, descriptor = offline_release(tmp_path, people=people)
     monkeypatch.setattr(online_setup, 'ENGINE', engine)
@@ -86,7 +89,7 @@ def run_engine(tmp_path, monkeypatch, root, *extra, people=False, accepted=None)
     out = io.StringIO()
     monkeypatch.setattr(sys, 'stdout', out)
     code = online_setup.main(['--descriptor', str(descriptor), '--attempt', str(tmp_path / 'attempt'),
-                              '--choices', str(choices(tmp_path, root, people, accepted)),
+                              '--choices', str(choices(tmp_path, root, people, accepted, backup)),
                               '--bundle', str(tmp_path / 'bundle'), '--os-version', '27.2', *extra])
     return code, handed, out.getvalue(), manifest
 
@@ -103,6 +106,64 @@ def test_engine_prepares_offline_and_hands_over_with_launcher_flag(tmp_path, mon
     assert bundled.resume_receipt(root) == Path(handed['receipt'])
     receipt = json.loads(Path(handed['receipt']).read_text())
     assert receipt['features'] == ['core'] and receipt['stage'] == 'materialized'
+
+
+def backup_folder(tmp_path):
+    backup = tmp_path / 'Backup Disk/familyfoto-backup-1'
+    (backup / 'catalog').mkdir(parents=True)
+    return backup
+
+
+def test_restore_choice_hands_over_as_a_restore_with_the_backup(tmp_path, monkeypatch):
+    backup = backup_folder(tmp_path)
+    code, handed, _, _ = run_engine(tmp_path, monkeypatch, tmp_path / 'FamilyFoto', backup=backup)
+    assert code == 0 and handed['mode'] == 'restore'
+    assert handed['env'] == {'FAMILYFOTO_LAUNCHER': '1', 'FAMILYFOTO_RESTORE_BACKUP': str(backup)}
+
+
+@pytest.mark.parametrize('where', ['not-a-backup', 'relative', 'inside', 'contains'])
+def test_unusable_backup_is_refused_before_downloading(tmp_path, monkeypatch, where):
+    backup = backup_folder(tmp_path)
+    root = tmp_path / 'FamilyFoto'
+    if where == 'not-a-backup':
+        backup = backup.parent
+    elif where == 'relative':
+        backup = Path('Backup Disk/familyfoto-backup-1')
+    elif where == 'inside':
+        root = backup / 'FamilyFoto'
+    else:
+        root = backup.parent
+    with pytest.raises(ValueError, match='backup folder|outside the backup'):
+        run_engine(tmp_path, monkeypatch, root, backup=backup)
+    assert not (tmp_path / 'attempt').exists() and not (tmp_path / 'FamilyFoto').exists()
+
+
+def can_link(tmp_path):
+    try:
+        (tmp_path / 'probe-link').symlink_to(tmp_path)
+    except OSError:
+        return False  # ordinary Windows accounts cannot create symbolic links
+    (tmp_path / 'probe-link').unlink()
+    return True
+
+
+@pytest.mark.parametrize('case', ['link-to-backup', 'link-inside-backup', 'backup-through-link', 'other-case'])
+def test_backup_aliases_are_compared_by_identity(tmp_path, monkeypatch, case):
+    backup = backup_folder(tmp_path)
+    (backup / 'sub').mkdir()
+    if case == 'other-case':
+        if not MAC:
+            pytest.skip('case-insensitive APFS behaviour')
+        root, chosen = Path(str(backup).replace('Backup Disk', 'BACKUP DISK')) / 'FamilyFoto', backup
+    else:
+        if not can_link(tmp_path):
+            pytest.skip('this account cannot create symbolic links')
+        link = tmp_path / 'alias'
+        link.symlink_to(backup / 'sub' if case == 'link-inside-backup' else backup)
+        root, chosen = ((backup / 'FamilyFoto', link) if case == 'backup-through-link' else (link / 'FamilyFoto', backup))
+    with pytest.raises(ValueError, match='outside the backup'):
+        run_engine(tmp_path, monkeypatch, root, backup=chosen)
+    assert not (tmp_path / 'attempt').exists() and not (backup / 'FamilyFoto').exists()
 
 
 def test_people_choice_selects_the_people_feature(tmp_path, monkeypatch):

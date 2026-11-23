@@ -129,13 +129,19 @@ final class Setup: ObservableObject {
 
     /// A release installation can install People only if its People payloads were downloaded.
     let peopleAvailable: Bool
+    /// FamilyFoto Setup.app already asked New library or Restore (and People); don't ask again.
+    let modeChosen: Bool
 
     init(root: URL, restore: Bool, initialBackup: String = "", peopleAvailable: Bool = Setup.downloadedPeople(),
+         modeChosen: Bool = ProcessInfo.processInfo.environment["FAMILYFOTO_LAUNCHER"] == "1",
          resumeCheck: @escaping (URL) throws -> [String: String] = { try check($0, "resume", [:]) }) {
         self.root = root
         self.resumeCheck = resumeCheck
         self.peopleAvailable = peopleAvailable
+        self.modeChosen = modeChosen
         a.restore = restore
+        // People was downloaded because it was chosen in the Setup app; its model terms are still asked here.
+        if modeChosen && peopleAvailable { a.people = true }
         // Property observers do not run in init, so apply the default library location here.
         if restore { a.backup = initialBackup; a.parent = Setup.defaultParent(initialBackup) }
     }
@@ -419,7 +425,7 @@ struct SetupView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
                     if setup.page == .questions {
-                        if !setup.resumed {
+                        if !setup.resumed && !setup.modeChosen {
                             Picker("Library", selection: $setup.a.restore) {
                                 Text("New library").tag(false); Text("Restore from a backup").tag(true)
                             }.pickerStyle(.segmented)
