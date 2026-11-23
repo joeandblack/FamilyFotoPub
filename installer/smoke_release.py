@@ -24,7 +24,18 @@ def main():
     # Create only that pipe before denying all subsequent network operations.
     loop = asyncio.new_event_loop()
 
+    # Windows private folders (app/backup/private_storage.py) need the account SID and an ACL,
+    # from these two system programs. They are local and touch only folders inside the release.
+    system = Path(os.environ.get('SystemRoot', r'C:\Windows')) / 'System32'
+    allowed = {str(system / 'whoami.exe').lower(), str(system / 'icacls.exe').lower()} if os.name == 'nt' else set()
+
     def audit(event, args):
+        if event == 'subprocess.Popen':
+            # On Windows the audit event carries the joined command line, quoted by list2cmdline.
+            line = os.fsdecode(args[1]) if isinstance(args[1], (str, bytes)) else ''
+            program = line[1:line.find('"', 1)] if line.startswith('"') else line.split(' ', 1)[0]
+            if args[0] is None and program.lower() in allowed:
+                return
         if event in ('socket.connect', 'socket.bind', 'socket.getaddrinfo', 'socket.sendto',
                      'socket.sendmsg', 'subprocess.Popen', 'os.system'):
             raise RuntimeError(f'Offline smoke check prohibits {event}')

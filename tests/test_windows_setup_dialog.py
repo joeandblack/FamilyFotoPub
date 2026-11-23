@@ -100,7 +100,7 @@ def test_only_the_restore_child_gets_the_frame(tmp_path):
             + ") ([FamilyFotoSetupRun]::Frame('correct horse battery staple')); 'exit ' + $code")
     result = run_powershell(code, b'')
     assert result.returncode == 0, result.stderr
-    assert result.stdout.decode().split() == ['child', 'True', 'grandchild', '0', 'exit', '0']
+    assert result.stdout.decode().split() == ['child', 'True', 'grandchild', '0', 'exit', '0'], result.stderr.decode(errors='replace')
     assert b'horse' not in result.stdout + result.stderr
 
 

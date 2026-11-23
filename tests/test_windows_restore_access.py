@@ -11,6 +11,12 @@ from installer.windows.restore import restore_desktop_access
 pytestmark = pytest.mark.skipif(os.name != 'nt', reason='Windows NTFS permissions')
 
 
+def sddl_names(sid):
+    """How icacls /save may write this account: its SID, or the SDDL alias of a built-in one
+    (the GitHub Windows runner runs as the built-in Administrator, saved as LA)."""
+    return {sid} | ({'LA'} if sid.endswith('-500') else set()) | ({'LG'} if sid.endswith('-501') else set())
+
+
 def test_restored_jobs_and_caches_get_desktop_sid_only_inside_runtime_trees(tmp_path, monkeypatch):
     from app.backup.diagnostics import ExplainedFailure
 
@@ -61,7 +67,7 @@ def test_restored_jobs_and_caches_get_desktop_sid_only_inside_runtime_trees(tmp_
     job = data / names[-1]
     subprocess.run(['icacls', job, '/inheritance:r', '/grant:r', '*S-1-3-4:F'], check=True)
     subprocess.run(['icacls', job, '/save', saved], check=True)
-    assert sid not in saved.read_text(encoding='utf-16-le')
+    assert not any(f';;;{name})' in saved.read_text(encoding='utf-16-le') for name in sddl_names(sid))
     from installer.windows import restore_acl
     original_grant = restore_acl.grant
     attempts = []
@@ -83,10 +89,12 @@ def test_restored_jobs_and_caches_get_desktop_sid_only_inside_runtime_trees(tmp_
     assert database_acl() == before
     assert (media / 'photo.jpg').read_bytes() == b'original bytes'
     subprocess.run(['icacls', media / 'photo.jpg', '/save', saved], check=True)
-    assert f';0x1301bf;;;{sid})' in saved.read_text(encoding='utf-16-le')
+    acl = saved.read_text(encoding='utf-16-le')
+    assert any(f';0x1301bf;;;{name})' in acl for name in sddl_names(sid)), acl
     for name in names:
         subprocess.run(['icacls', data / name, '/save', saved], check=True)
-        assert f';0x1301bf;;;{sid})' in saved.read_text(encoding='utf-16-le')
+        acl = saved.read_text(encoding='utf-16-le')
+        assert any(f';0x1301bf;;;{form})' in acl for form in sddl_names(sid)), (name, acl)
     # A relocated/mismatched config must fail before even the runtime ACL pass.
     monkeypatch.setattr(restore_acl, 'repair_trees', lambda *args: pytest.fail('must validate first'))
     destination['root'] = str(tmp_path / 'unrelated')

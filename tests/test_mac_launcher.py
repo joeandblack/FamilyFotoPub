@@ -26,6 +26,8 @@ from tests.test_shared_installer import component, digest
 ROOT = Path(__file__).resolve().parents[1]
 MAC = sys.platform == 'darwin' and platform.machine() == 'arm64'
 SWIFT = MAC and Path('/usr/bin/swiftc').exists()
+# The built app refuses to run below the release's minimum_os (27.0), by design.
+MACOS_27 = MAC and int((platform.mac_ver()[0] or '0').split('.')[0]) >= 27
 TERMS = b'Fixture terms\n'
 
 
@@ -227,6 +229,7 @@ def test_descriptor_rules(changes):
 
 
 @pytest.mark.skipif(not SWIFT, reason='building the app needs Apple Silicon macOS with swiftc')
+@pytest.mark.skipif(SWIFT and not MACOS_27, reason='the built app runs only on macOS 27 or newer')
 def test_built_app_is_signed_and_its_check_verifies_the_bootstrap(tmp_path, monkeypatch):
     """Build the real app with an offline fixture bundle and run its headless `--check`."""
     manifest, engine, _ = offline_release(tmp_path)

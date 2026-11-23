@@ -86,7 +86,8 @@ def test_sandbox_package_excludes_private_files(tmp_path, automated):
     package = config_path.parent / 'input/FamilyFoto'
     assert not (package / 'config/local.json').exists()
     assert not (package / 'data').exists()
-    assert (package / 'installer/windows/prepare-sandbox-test.ps1').exists()
+    assert (package / 'installer/windows/prepare-sandbox-test.ps1').exists(), (
+        sum(1 for _ in package.rglob('*')), result.stdout[-2000:], result.stderr[-2000:])
     assert (package / 'face_detect/api/service.py').exists()
     assert (package / 'face_detect/web/automatic-people-preview.mjs').exists()
     assert (package / 'installer/native_people.py').read_bytes() == (ROOT / 'installer/native_people.py').read_bytes()
@@ -175,7 +176,7 @@ def powershell(code):
         pytest.skip('Windows PowerShell helper test')
     encoded = base64.b64encode(code.encode('utf-16le')).decode()
     return subprocess.run(['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass',
-                           '-EncodedCommand', encoded], capture_output=True, text=True, timeout=30)
+                           '-EncodedCommand', encoded], capture_output=True, text=True, errors='replace', timeout=30)
 
 
 def literal(path):
