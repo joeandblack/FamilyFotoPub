@@ -93,6 +93,16 @@ function New-SetupPasswordRuntime([string]$Root, [int]$Owner = $PID) {
     $folder
 }
 
+function Start-SetupPasswordProcess([Diagnostics.ProcessStartInfo]$Info) {
+    # Windows PowerShell's .NET Framework uses this encoding to construct stdin
+    # and can emit a BOM during Start(), before our frame is written.
+    $previous = [Console]::InputEncoding
+    try {
+        [Console]::InputEncoding = New-Object Text.UTF8Encoding($false)
+        [Diagnostics.Process]::Start($Info)
+    } finally { [Console]::InputEncoding = $previous }
+}
+
 # Run installer/password_check.py with the frame on its stdin. Returns its answer.
 function Invoke-SetupPasswordCheck([string]$Root, [string]$Runtime, [string]$Backup, [byte[]]$Frame, [int]$TimeoutMilliseconds = 120000, [string[]]$Test = @()) {
     if ($Test.Count -eq 0 -and -not (Test-SetupPasswordRuntimePath $Root $Runtime)) { throw 'Unexpected password-check folder.' }
@@ -102,10 +112,11 @@ function Invoke-SetupPasswordCheck([string]$Root, [string]$Runtime, [string]$Bac
     if ($Test.Count -ge 1) { $info.FileName = $Test[0]; $info.Arguments = ($Test | Select-Object -Skip 1) -join ' ' }
     $info.UseShellExecute = $false; $info.CreateNoWindow = $true
     $info.RedirectStandardInput = $true; $info.RedirectStandardOutput = $true; $info.RedirectStandardError = $true
-    $process = [Diagnostics.Process]::Start($info)
+    $process = Start-SetupPasswordProcess $info
     try {
         $process.StandardInput.BaseStream.Write($Frame, 0, $Frame.Length)
-        $process.StandardInput.Close()
+        # Close the raw pipe, not its unused text writer (which can append a BOM).
+        $process.StandardInput.BaseStream.Close()
         # Both streams drain on their own while this waits with a deadline: a helper that hangs, or
         # fills stderr, can neither block the read nor deadlock the other stream.
         $outputTask = $process.StandardOutput.ReadToEndAsync(); $errorTask = $process.StandardError.ReadToEndAsync()
@@ -164,10 +175,10 @@ function Invoke-SetupPasswordChild([string]$Program, [string[]]$Arguments, [byte
     $info.UseShellExecute = $false
     $info.RedirectStandardInput = $true
     $info.WorkingDirectory = (Get-Location).Path
-    $process = [Diagnostics.Process]::Start($info)
+    $process = Start-SetupPasswordProcess $info
     try {
         $process.StandardInput.BaseStream.Write($Frame, 0, $Frame.Length)
-        $process.StandardInput.Close()
+        $process.StandardInput.BaseStream.Close()
         $process.WaitForExit()
         $process.ExitCode
     } finally { $process.Dispose() }

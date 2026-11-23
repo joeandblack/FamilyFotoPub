@@ -52,12 +52,15 @@ public class FamilyFotoSetupRun {
     public void StartFramed(string program, string[] arguments, string directory, byte[] frame, string logPath) {
         Launch(program, arguments, directory, logPath);
         try { process.StandardInput.BaseStream.Write(frame, 0, frame.Length); process.StandardInput.BaseStream.Flush(); }
-        finally { process.StandardInput.Close(); Array.Clear(frame, 0, frame.Length); }
+        finally { process.StandardInput.BaseStream.Close(); Array.Clear(frame, 0, frame.Length); }
     }
     public void Start(string program, string[] arguments, string directory, string input, string logPath) {
         Launch(program, arguments, directory, logPath);
-        if (input != null) { process.StandardInput.WriteLine(input); }
-        process.StandardInput.Close();
+        // Do not use the locale-dependent text writer, even to close a raw pipe:
+        // its encoder may emit a BOM on close, corrupting a password frame.
+        byte[] bytes = input == null ? new byte[0] : new UTF8Encoding(false, true).GetBytes(input + "\n");
+        try { process.StandardInput.BaseStream.Write(bytes, 0, bytes.Length); process.StandardInput.BaseStream.Flush(); }
+        finally { process.StandardInput.BaseStream.Close(); Array.Clear(bytes, 0, bytes.Length); }
     }
     private void Launch(string program, string[] arguments, string directory, string logPath) {
         log = new StreamWriter(logPath, true, new UTF8Encoding(false));
@@ -78,7 +81,11 @@ public class FamilyFotoSetupRun {
         process.StartInfo = info;
         process.OutputDataReceived += (sender, e) => Take(e.Data, false);
         process.ErrorDataReceived += (sender, e) => Take(e.Data, true);
-        process.Start();
+        // .NET Framework chooses the stdin writer from Console.InputEncoding and
+        // may emit its preamble during Start(), before any raw bytes are written.
+        var previousInputEncoding = Console.InputEncoding;
+        try { Console.InputEncoding = new UTF8Encoding(false); process.Start(); }
+        finally { Console.InputEncoding = previousInputEncoding; }
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
     }

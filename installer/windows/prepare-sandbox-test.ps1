@@ -13,7 +13,12 @@ $buildArgs = @((Join-Path $root 'installer\release.py'), 'build', '--output', (J
 if ($AllowDirty) { $buildArgs += '--allow-dirty' }
 $archive = & $Python @buildArgs
 if ($LASTEXITCODE -ne 0) { throw 'Release packaging failed; Sandbox was not prepared' }
-Expand-Archive -LiteralPath $archive -DestinationPath (Join-Path $stage 'input')
+# This archive was just built locally from the audited release payload. Python
+# handles the deep fixture paths that Windows PowerShell's Expand-Archive cannot.
+$inputPath = [IO.Path]::GetFullPath((Join-Path $stage 'input'))
+$extractPath = if ($inputPath.StartsWith('\\')) { '\\?\UNC\' + $inputPath.Substring(2) } else { '\\?\' + $inputPath }
+& $Python -m zipfile -e $archive $extractPath
+if ($LASTEXITCODE -ne 0) { throw 'Release extraction failed; Sandbox was not prepared' }
 # Only this sanitized input directory is mapped, read-only. Install into guest C:.
 $escaped = [Security.SecurityElement]::Escape((Join-Path $stage 'input'))
 $outputMapping = ''
