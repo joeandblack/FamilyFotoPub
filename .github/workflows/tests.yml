@@ -1,10 +1,8 @@
 name: Tests
 on:
   push:
-    branches: [main]
-    tags: ['v*']
-  pull_request:
-    branches: [main]
+    # Paid runners are reserved for release qualification, not everyday PRs.
+    branches: ['release/**', 'beta-release-*']
   workflow_dispatch:
     inputs:
       full:
@@ -40,7 +38,7 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD^' }}
           HEAD: ${{ github.sha }}
-          FULL: ${{ startsWith(github.ref, 'refs/tags/') || inputs.full }}
+          FULL: ${{ github.event_name == 'push' || inputs.full }}
         run: |
           if [ "$FULL" = true ]; then
             python -m scripts.ci_tests --full
