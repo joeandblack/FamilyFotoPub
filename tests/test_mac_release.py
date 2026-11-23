@@ -6,6 +6,7 @@ installed or started, and Homebrew itself is never changed.
 """
 import io
 import json
+import tarfile
 import struct
 import os
 import platform
@@ -224,7 +225,20 @@ def test_copyleft_wheel_needs_its_source_distribution(tmp_path, monkeypatch):
     manifest, release = assembled(tmp_path, monkeypatch, wheel_license='GNU Lesser General Public License v3 (LGPLv3)')
     with pytest.raises(ValueError, match='lacks the source distribution of insightface_pkg 1.0'):
         build_release.audit(manifest, release / 'payload')
-    (release / 'sources/insightface-pkg-1.0.tar.gz').write_bytes(b'sdist')  # any spelling of the name
+    sources = release / 'sources'
+    for sidecar in ('insightface_pkg-1.0.tar.gz.sha256', 'insightface_pkg-1.0.tar.gz.asc', 'insightface_pkg-1.0.tar.gz.part'):
+        (sources / sidecar).write_text('not the archive')
+        with pytest.raises(ValueError, match='lacks the source distribution'):
+            build_release.audit(manifest, release / 'payload')
+    (sources / 'insightface_pkg-1.0.tar.gz').write_bytes(b'not an archive')
+    with pytest.raises(ValueError, match='lacks the source distribution'):
+        build_release.audit(manifest, release / 'payload')
+    (sources / 'insightface_pkg-1.0.tar.gz').unlink()
+    with tarfile.open(sources / 'insightface-pkg-1.0.tar.gz', 'w:gz') as archive:  # any spelling of the name
+        data = b'[project]\nname = "insightface_pkg"\n'
+        info = tarfile.TarInfo('insightface_pkg-1.0/pyproject.toml')
+        info.size = len(data)
+        archive.addfile(info, io.BytesIO(data))
     build_release.audit(manifest, release / 'payload')
 
 

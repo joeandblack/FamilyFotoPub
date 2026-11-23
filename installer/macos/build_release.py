@@ -28,6 +28,7 @@ import json
 import re
 import shutil
 import sys
+import tarfile
 import zipfile
 from pathlib import Path
 from urllib.parse import quote, urlsplit
@@ -83,7 +84,9 @@ def missing_sources(manifest, payload_root):
         elif item['bundle_path'].endswith('.whl') and any(COPYLEFT.search(i) for i in item['license_ids']):
             name, version = Path(item['bundle_path']).name.split('-')[:2]
             stem = normalized(f'{name}-{version}')
-            if not any(k.startswith(stem + '-tar-gz') or k == stem + '-zip' for k in present):
+            # Exactly the archive, never a sidecar such as .tar.gz.sha256, and one that opens.
+            archive = present.get(stem + '-tar-gz') or present.get(stem + '-zip')
+            if not (archive and (tarfile.is_tarfile(archive) or zipfile.is_zipfile(archive))):
                 problems.append(f"{item['id']}: sources/ lacks the source distribution of {name} {version} "
                                 f"({', '.join(item['license_ids'])})")
     return problems
