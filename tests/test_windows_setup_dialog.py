@@ -264,7 +264,8 @@ def test_progress_lines_are_understood(line, expected):
 
 # The runner.
 
-def test_the_runner_passes_the_password_on_standard_input_and_reads_all_output(tmp_path):
+@pytest.mark.parametrize('password', ['secret password!', '秘密 Bibliothèque!'])
+def test_the_runner_passes_the_password_on_standard_input_and_reads_all_output(tmp_path, password):
     child = tmp_path / 'child.py'
     child.write_text(
         'import sys, os\n'
@@ -279,18 +280,18 @@ def test_the_runner_passes_the_password_on_standard_input_and_reads_all_output(t
     log = tmp_path / 'run.log'
     code = (f"Add-Type -Path {literal(WINDOWS / 'setup-run.cs')}; $r = New-Object FamilyFotoSetupRun; "
             f"$r.Start({literal(sys.executable)}, [string[]]@({literal(child)}, 'D:\\with space\\', 'plain'), "
-            f"{literal(tmp_path)}, 'secret password!', {literal(log)}); "
+            f"{literal(tmp_path)}, {literal(password)}, {literal(log)}); "
             "while (-not $r.Finished) { Start-Sleep -Milliseconds 100 }; Start-Sleep -Milliseconds 200; $r.Close(); "
             "$lines = @(); $line = $null; while ($r.Lines.TryDequeue([ref]$line)) { $lines += $line }; "
             "'exit=' + $r.ExitCode; $lines")
     result = powershell(code)
     assert result.returncode == 0, result.stderr
     out = result.stdout
-    assert 'exit=3' in out and 'got 16 characters' in out
+    assert 'exit=3' in out and f'got {len(password)} characters' in out
     assert "args ['D:\\\\with space\\\\', 'plain']" in out  # A trailing backslash survives the quoting.
     assert 'encoding utf-8' in out and '! a problem' in out
     text = log.read_text(encoding='utf-8')
-    assert '名前 Bibliothèque' in text and 'secret password' not in text and 'secret password' not in out
+    assert '名前 Bibliothèque' in text and password not in text and password not in out
 
 
 # The restore's progress lines.
