@@ -1,0 +1,23 @@
+/data/
+/logs/
+/temp/
+/runtime/
+/.venv/
+/config/local.json
+/config/local.json.lock
+/config/tls/
+/config/read-only-preview.json
+/config/limited-edit-preview.json
+/config/readonly-canary.txt
+__pycache__/
+.pytest_cache/
+*.pyc
+.env
+node_modules/
+/web/familyfoto-root.cer
+
+/FamilyFoto.app/
+/Stop FamilyFoto.app/
+/.macos-setup.json
+/.macos-setup.log
+/.macos-setup.lock

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en" data-theme="familyfoto">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FamilyFoto Login</title><link rel="stylesheet" href="/web/daisyui-5.7.50.css"><link rel="stylesheet" href="/web/styles.css">
+</head>
+<body class="login-page"><main class="card login-card"><span class="login-mark" aria-hidden="true">F</span><h1>FamilyFoto</h1><p class="muted">Your family memories, together.</p><form id="loginForm"><h2>Welcome back</h2>
+<label>Username<input name="username" autocomplete="off" list="loginUsers" maxlength="128" required></label>
+<datalist id="loginUsers"><option value="familyfoto"></option><option value="guest"></option></datalist>
+<label>Password<input name="password" type="password" autocomplete="current-password" maxlength="1024" required></label>
+<button type="submit">Sign In</button><p id="error" class="alert alert-soft alert-error" role="status" hidden></p>
+</form></main><script type="module">
+const form=document.getElementById('loginForm'),error=document.getElementById('error');
+let retryAt=0;
+form.onsubmit=async event=>{
+ if(Date.now()<retryAt){event.preventDefault();return;}
+ event.preventDefault();const button=form.querySelector('button');button.disabled=true;error.hidden=true;
+ try {
+  const response=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(form)))});
+  const result=await response.json();
+  if(response.status===429){
+   const seconds=Math.max(1,Math.min(60,Number(result.retry_after)||60));retryAt=Date.now()+seconds*1000;
+   setTimeout(()=>{button.disabled=false;error.textContent='You can try signing in again.';},seconds*1000);
+  }
+  if(!response.ok)throw Error(result.error||'Sign in failed');
+  try{sessionStorage.removeItem('familyfoto.navigation');}catch{}
+  location.replace('/');
+ } catch(e) {error.textContent=e.message;error.hidden=false;} finally {button.disabled=Date.now()<retryAt;}
+};
+</script><script type="module" src="/web/ui.mjs"></script></body></html>

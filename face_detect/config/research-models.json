@@ -1,0 +1,60 @@
+{
+  "insightface": {
+    "schema": "familyfoto-native-model-v1",
+    "provider": "insightface",
+    "model": "buffalo_l",
+    "dimensions": 512,
+    "normalization": "l2",
+    "download": "https://github.com/deepinsight/insightface/releases/download/model-zoo/buffalo_l.zip",
+    "assets": {
+      "detector": {
+        "path": "det_10g.onnx",
+        "sha256": "5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91"
+      },
+      "recognizer": {
+        "path": "w600k_r50.onnx",
+        "sha256": "4c06341c33c2ca1f86781dab0e829f88ad5b64be9fba56e56bc9ebdefc619e43"
+      }
+    },
+    "settings": {
+      "detection_threshold": 0.8,
+      "detector_size": 640
+    },
+    "matching": {
+      "mode": "review-only"
+    },
+    "archive_sha256": "80ffe37d8a5940d59a7384c201a2a38d4741f2f3c51eef46ebb28218a7b0ca2f"
+  },
+  "facenet": {
+    "schema": "familyfoto-native-model-v1",
+    "provider": "facenet",
+    "model": "InceptionResnetV1-vggface2-20180402-114759",
+    "dimensions": 512,
+    "normalization": "l2",
+    "download": "https://github.com/timesler/facenet-pytorch/releases/download/v2.2.9/20180402-114759-vggface2.pt",
+    "assets": {
+      "recognizer": {
+        "path": "recognizer.pt",
+        "sha256": "281cebca8662831adb987a874bdcb36e73f5b1c6dc5ee5878f305e985625d99b"
+      },
+      "pnet": {
+        "path": "pnet.pt",
+        "sha256": "a2a71925e0b9996a42f63e47efc1ca19043e69558b5c523b978d611dfae49c8f"
+      },
+      "rnet": {
+        "path": "rnet.pt",
+        "sha256": "bbb937de72efc9ef83b186c49f5f558467a1d7e3453a8ece0d71a886633f6a86"
+      },
+      "onet": {
+        "path": "onet.pt",
+        "sha256": "165bfbe42940416ccfb977545cf0e976d5bf321f67083ae2aaaa5c764280118d"
+      }
+    },
+    "settings": {
+      "detection_threshold": 0.8
+    },
+    "matching": {
+      "mode": "review-only"
+    }
+  }
+}

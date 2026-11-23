@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en" data-theme="familyfoto"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FamilyFoto backup</title><link rel="icon" href="/web/familyfoto.ico"><link rel="stylesheet" href="/web/daisyui-5.7.50.css"><link rel="stylesheet" href="/web/styles.css"></head>
+<body class="backup-progress"><main><h1>FamilyFoto backup</h1>
+<p id="runAbout" class="muted">FamilyFoto is stopped while the backup runs, and this page follows it. The backup runs on the FamilyFoto computer without a window, so you can close this page and open this address again at any time.</p>
+<p id="runState" role="status" aria-live="polite">Connecting…</p>
+<progress id="runProgress" max="100" hidden></progress><p id="runDetail" class="muted"></p>
+<p id="runError" class="notice" hidden></p>
+<div id="runDecision" hidden><p>The library stays locked until you choose. Nothing has been deleted.</p><button id="runRetry" type="button">Try again</button> <button id="runRestart" type="button">Give up and restart FamilyFoto</button></div>
+<div id="runDone" hidden><p id="runDoneText"></p><a id="runReturn" class="btn btn-primary" href="/">Return to FamilyFoto</a></div>
+<p id="runFolder" class="muted"></p>
+<section id="runRetained" hidden><h2>Retained incomplete attempts</h2><ul id="runRetainedFolders" style="overflow-wrap:anywhere"></ul></section>
+<details id="runLog" hidden><summary>Show the backup log</summary><pre id="runLogText" tabindex="0" aria-live="off"></pre></details>
+</main><script type="module" src="/web/backup-progress.mjs"></script></body></html>

@@ -1,0 +1,2 @@
+installer/macos/*.sh text eol=lf
+installer/macos/handover/*.command text eol=lf

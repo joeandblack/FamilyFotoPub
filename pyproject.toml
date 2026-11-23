@@ -1,0 +1,69 @@
+# The supported distribution is the folder-preserving release ZIP, not a wheel.
+# See installer/PACKAGING.md before changing package paths or launch commands.
+[project]
+name = "familyfoto"
+version = "0.1.0.dev0"
+description = "Self-hosted family media library"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "fastapi==0.115.12",
+  "uvicorn==0.34.2",
+  "psycopg[binary]==3.2.9",
+  "psycopg-pool==3.3.3",
+  "Pillow==11.2.1",
+  "pillow-heif==1.8.1",
+  "httpx==0.28.1",
+  "cryptography==44.0.3",
+]
+
+[project.optional-dependencies]
+test = ["pytest==8.3.5"]
+lint = ["ruff==0.8.6"]
+
+[tool.familyfoto.release]
+format-version = 1
+core-schema-version = 37
+# Historical sequential SQL upgrades remain available from an empty database.
+# This does not certify every old application's data/model upgrade path.
+minimum-upgrade-schema = 0
+distribution = "application-directory"
+
+[tool.familyfoto.entrypoints]
+asgi = ["app.api:app"]
+modules = [
+  "fastbackup",
+  "app.backup", "app.backup.verify", "app.backup.state_files", "app.backup.manage", "app.backup.admin_runner", "app.backup.admin_restore",
+  "app.migration.preview_server", "app.migration.launch",
+  "app.service.server", "app.service.desktop", "app.service.macos", "app.service.live",
+  "app.jobs", "app.photos.recovery", "app.photos.thumbnail_recovery", "app.photos.heif",
+  "app.database.schema_upgrading", "app.database", "app.certificates", "app.imports.importer", "app.video.metadata", "app.video.avi",
+  "face_detect.providers.runner", "face_detect.cli.setup", "face_detect.cli.doctor",
+  "face_detect.jobs.automatic_people_local",
+]
+scripts = [
+  "scripts/start.ps1", "scripts/desktop-server.ps1", "scripts/desktop-control.ps1",
+  "scripts/import.ps1", "scripts/upgrade_auth.py", "scripts/rebuild_missing_thumbnails.py",
+  "scripts/launch_readonly_preview.py", "scripts/backup_validation_snapshot.py",
+  "installer/windows/install.ps1", "installer/macos/install.sh",
+  "installer/macos/manage.py", "installer/configure.py",
+  "installer/init-database.py", "installer/verify-installation.py",
+]
+
+[tool.ruff]
+target-version = "py312"
+extend-exclude = ["data", "temp", "runtime", "logs"]
+
+[tool.ruff.lint]
+# Real mistakes only: syntax/runtime errors (E9), statement problems (E7), pyflakes (F).
+select = ["E4", "E7", "E9", "F"]
+# The codebase deliberately uses compact one-line statements; not a defect.
+ignore = ["E701", "E702", "E731"]
+
+[tool.ruff.lint.per-file-ignores]
+# pytest fixtures imported from another test module look unused/redefined to pyflakes
+# but are required (they are used as test arguments), so these rules are off for tests.
+"tests/**" = ["F401", "F811"]
+"face_detect/tests/**" = ["F401", "F811"]
+# Scripts and installers adjust sys.path before importing project modules.
+"scripts/**" = ["E402"]
+"installer/**" = ["E402"]

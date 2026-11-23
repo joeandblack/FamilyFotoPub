@@ -1,0 +1,63 @@
+name: Tests
+# Work lands on develop after being tested locally on macOS and Windows (docs/DEVELOPMENT.md),
+# so only pull requests into main (and main itself) pay for the hosted runners.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+concurrency:
+  group: tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  safety:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m pip install --require-hashes -r requirements-faces-windows.txt
+      - run: python -m pytest tests face_detect/tests -q
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/*.test.mjs
+
+  macos:
+    # Apple Silicon, with a disposable PostgreSQL so database tests run, not skip.
+    runs-on: macos-latest
+    env:
+      LC_ALL: en_US.UTF-8
+      FAMILYFOTO_INTEGRATION: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-dev.txt -r face_detect/config/dependencies/people-macos-arm64.txt
+      - name: Install and start PostgreSQL and ffmpeg
+        run: |
+          brew install postgresql@17 ffmpeg
+          PGBIN="$(brew --prefix postgresql@17)/bin"
+          "$PGBIN/initdb" -D "$RUNNER_TEMP/pg" -U postgres --auth=trust
+          "$PGBIN/pg_ctl" -D "$RUNNER_TEMP/pg" -o "-p 55432 -k /tmp" -l "$RUNNER_TEMP/pg.log" -w start
+          "$PGBIN/psql" -h 127.0.0.1 -p 55432 -U postgres \
+            -c "CREATE USER familyfoto SUPERUSER PASSWORD 'ci'" \
+            -c "CREATE DATABASE familyfoto OWNER familyfoto"
+      - name: Write disposable test configuration
+        run: |
+          python - <<'PY'
+          import json
+          config = json.load(open('config/example.json'))
+          config['database'].update(port=55432, password='ci')
+          config['video_tools'] = {'ffmpeg': '/opt/homebrew/bin/ffmpeg', 'ffprobe': '/opt/homebrew/bin/ffprobe'}
+          json.dump(config, open('config/local.json', 'w'))
+          PY
+          python -c "from app.database import migrate, close_pools; migrate(); close_pools()"
+      - run: python -m pytest -q --durations=15
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/*.test.mjs

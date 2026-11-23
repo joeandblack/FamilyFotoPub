@@ -1,0 +1,163 @@
+// Loaded before app.js in the disposable Chrome smoke-test page.
+const batches=[1,2].map(id=>({id,source_root:`Fixture/photos/import-${id}`,
+ started_at:'2026-10-13T00:00:00Z',state:'completed-review-required',total:4,total_bytes:4000,
+ counts:{imported:3,duplicate:1},bytes_by_state:{imported:3000,duplicate:1000},
+ stages:{metadata:{done:1,pending:1},conversion:{pending:2}},auto_metadata:false,auto_conversion:false}));
+batches.push({...batches[0],id:3,source_root:'Fixture/photos/duplicates-only',counts:{duplicate:4},stages:{metadata:{},conversion:{}}});
+let pipeline={busy:true,job_id:2,stage:'metadata',pause_requested:false};
+const commands=[],failures=[];
+let photoTrashed=false;
+const latestSource=batches.at(-1).source_root;
+let storageConfig={source:'F:\\PHOTOS\\Fixture',destination:'E:\\FamilyFoto\\media',destination_locked:true,revision:'fixture-1'};
+const photo={id:900001,kind:'image',name:'Disposable fixture.jpg',size:100,width:20,height:20,sha256:'a'.repeat(64),relative_path:'fixture.jpg'};
+window.addEventListener('error',e=>failures.push(e.message));
+window.addEventListener('unhandledrejection',e=>failures.push(String(e.reason)));
+window.fetch=async(input,options={})=>{
+ const path=new URL(input,location.href).pathname;
+ let data;
+ if(options.method==='POST'){
+  commands.push({path,body:options.body?JSON.parse(options.body):null});
+  if(path==='/api/import/2/pause')pipeline.pause_requested=true;
+  else if(path==='/api/import/1/options')Object.assign(batches[0],JSON.parse(options.body));
+  else if(path==='/api/media/900001/trash/trash')photoTrashed=true;
+  else if(path==='/api/media/900001/trash/restore')photoTrashed=false;
+  else if(path==='/api/storage/settings'){const value=JSON.parse(options.body);check(!pipeline.busy,'No storage save during work');check(value.destination===storageConfig.destination,'Populated destination unchanged');storageConfig={...storageConfig,source:value.source,revision:'fixture-2'};}
+  else throw Error('Unexpected fixture command '+path);
+  data={message:'Fixture action recorded'};
+ }else if(path==='/api/me')data={username:'fixture',role:'admin'};
+ else if(path==='/api/storage/settings')data={...storageConfig,latest_source:latestSource,busy:pipeline.busy};
+ else if(path==='/api/storage')data={checked_at:new Date().toISOString(),source:{root:latestSource,serial:'fixture-source',volume_serial:'fixture',total:1000,used:100,free:900},destination:{root:storageConfig.destination,serial:'fixture-destination',volume_serial:'fixture',total:2000,used:1000,free:1000}};
+ else if(path==='/api/status')data={job:null,video:null,conversion:null,monitor:{state:'healthy',updated:new Date().toISOString()}};
+ else if(path==='/api/import/history')data={imports:batches,pipeline};
+ else if(path==='/api/issues')data={imports:[{job_id:2,errors:[{source_path:'Fixture/photos/import-2/failed.jpg',error:'Fixture copy error'}],unsupported:[{extension:'.xyz',count:2,files:[{source_path:'Fixture/photos/import-2/one.xyz'},{source_path:'Fixture/photos/import-2/two.xyz'}]}]}]};
+ else if(path==='/api/import/ignore-patterns')data={patterns:['*.xmp','*.srt'],no_extension:true};
+ else if(path==='/api/media'){
+  const kind=new URL(input,location.href).searchParams.get('kind');
+  const items=(kind==='trash'?photoTrashed:kind!=='video'&&!photoTrashed)?[{...photo,trashed_at:photoTrashed?'2026-10-13T00:00:00Z':null}]:[];
+  data={items,total:items.length,page:1,pages:1,page_size:1000,years:[],stats:{total:items.length,bytes:items.length*100}};
+ }
+ else throw Error('Unexpected fixture request '+path);
+ return new Response(JSON.stringify(data),{status:200,headers:{'Content-Type':'application/json'}});
+};
+const wait=async predicate=>{for(let i=0;i<100;i++){if(predicate())return;await new Promise(resolve=>setTimeout(resolve,20));}throw Error('Timed out waiting for fixture UI');};
+const check=(value,message)=>{if(!value)throw Error(message);};
+const group=id=>document.querySelector(`.import-group[data-job="${id}"]`);
+const buttons=id=>[...group(id).querySelectorAll('.pipeline-heading button')];
+window.addEventListener('load',async()=>{
+ const passed=[];
+ try{
+  await wait(()=>document.body.dataset.role==='admin');
+  document.querySelector('[data-view="imports"]').click();
+  await wait(()=>group(2));
+  check(document.querySelector('#imports').hidden===false,'Imports visible');
+  check(document.querySelectorAll('.pipeline-stage').length===9,'Three stages per import');
+  check(buttons(1).every(button=>button.disabled),'Other group blocked');
+  check(!buttons(2)[1].disabled&&group(2).open,'Active group expanded and can pause');
+  passed.push('Grouped Imports renders; single active group enforced');
+  check(!document.querySelector('#issues')&&![...document.querySelectorAll('h3')].some(e=>e.textContent==='Review'),'Standalone Review removed');
+  check(group(1).lastElementChild.className==='import-unsupported'&&group(2).lastElementChild.className==='import-unsupported','Unsupported files last in each import');
+  check(group(1).lastElementChild.textContent.includes('No unsupported files.'),'Empty unsupported state');
+  check(group(2).querySelector('.import-errors').textContent.includes('Fixture copy error'),'Failed-file details preserved');
+  const extension=group(2).querySelector('.issue-group');extension.open=true;
+  await wait(()=>extension.querySelectorAll('.issue').length===2);
+  check(!group(1).textContent.includes('one.xyz')&&group(2).textContent.includes('two.xyz'),'Unsupported paths scoped to correct import');
+  passed.push('Review removed; unsupported files last, scoped, expandable; failures and empty states retained');
+  buttons(2)[1].click();
+  await wait(()=>buttons(2)[1].textContent==='Pausing...');
+  check(buttons(2)[1].disabled,'Pause request disables repeated pause');
+  check(commands[0].path==='/api/import/2/pause','Pause scoped to selected import');
+  check(group(2).querySelector('.issue-group').open&&group(2).querySelectorAll('.issue-group .issue').length===2,'Expanded files survive refresh');
+  passed.push('Pause uses selected import endpoint and shows pending pause');
+  pipeline={busy:false};
+  document.querySelector('[data-view="video"]').click();
+  await wait(()=>document.querySelector('#imports').hidden);
+  check(document.querySelector('#library').hidden===false,'Videos gallery visible');
+  passed.push('Videos remains a gallery');
+  document.querySelector('[data-view="imports"]').click();
+  await wait(()=>!buttons(1)[1].disabled);
+  check(buttons(3).every(button=>button.disabled),'Duplicate-only import has no stage actions');
+  check([...group(3).querySelectorAll('.pipeline-options input')].every(input=>input.disabled),'Duplicate-only automatic options disabled');
+  check(!group(3).textContent.includes('Duplicates need no further processing.'),'Implementation explanation removed from UI');
+  check([...group(3).querySelectorAll('.pipeline-stage progress')].slice(1).every(progress=>progress.value===0),'Duplicate-only stages have zero work');
+  passed.push('Later duplicates have no post-processing work or controls');
+  check(buttons(1)[0].disabled&&buttons(1)[2].disabled,'Completed import and unmet conversion prerequisites blocked');
+  const option=group(1).querySelector('input');option.click();
+  await wait(()=>group(1).querySelector('input').checked&&!group(1).querySelector('input').disabled);
+  check(commands[1]?.path==='/api/import/1/options'&&commands[1].body.auto_metadata===true&&commands[1].body.auto_conversion===false,'Options belong only to selected import');
+  check(group(2).querySelector('input').checked===false,'Other group options untouched');
+  passed.push('Stage prerequisites and per-import options enforced');
+  pipeline={busy:true,job_id:2,stage:'conversion'};
+  document.querySelector('[data-view="settings"]').click();
+  await wait(()=>!document.querySelector('#storageRefresh').disabled);
+  check(document.querySelector('#heading').textContent==='Settings'&&document.title==='Settings - FamilyFoto','Settings page and title renamed');
+  check(document.querySelector('#storageSource')===null&&document.querySelector('#browseStorageSource')===null,'Duplicate source controls removed');
+  check(document.querySelector('#storage #ignoredTypes')&& !document.querySelector('#imports #ignoredTypes'),'Ignored file types moved to Settings');
+  check(document.querySelector('#ignorePatterns').textContent.includes('*.xmp'),'Ignore rules still loaded');
+  check(![...document.querySelectorAll('#imports h3')].some(e=>e.textContent==='Import history'),'History heading removed, records preserved');
+  check(document.querySelector('#importSource').value===latestSource,'Imports retains latest source');
+  const importDraft=document.querySelector('#importSource');importDraft.value='';importDraft.dispatchEvent(new Event('input'));
+  document.querySelector('[data-view="imports"]').click();await wait(()=>group(3));
+  check(importDraft.value==='','Explicitly cleared import draft is preserved');
+  document.querySelector('[data-view="settings"]').click();
+  await wait(()=>!document.querySelector('#storageRefresh').disabled);
+  check(document.querySelector('#saveStorageSettings').disabled,'Active media work blocks destination save');
+  check(document.querySelector('#storageDestination').disabled,'Populated destination locked');
+  pipeline={busy:false};document.querySelector('#storageRefresh').click();
+  await wait(()=>!document.querySelector('#saveStorageSettings').disabled);
+  const originalSource=storageConfig.source;
+  document.querySelector('#saveStorageSettings').click();
+  await wait(()=>!document.querySelector('#saveStorageSettings').disabled);
+  check(storageConfig.source===originalSource,'Destination settings preserve source configuration');
+  check(document.querySelector('#sourceDetails').textContent.includes(latestSource),'Read-only source status uses latest import');
+  check(document.querySelector('#ignorePatterns').textContent.includes('No extension'),'Explicit extensionless setting');
+  passed.push('Settings organization, destination guards, ignore rules, latest source and draft preservation');
+  pipeline={busy:true,job_id:2,stage:'conversion',pause_requested:false};
+  document.querySelector('[data-view="image"]').click();
+  await wait(()=>document.querySelector('#grid [data-id="900001"]'));
+  document.querySelector('#grid [data-id="900001"]').click();
+  await wait(()=>document.querySelector('#viewer').open);
+  document.querySelector('#viewerTrash').click();
+  await wait(()=>!document.querySelector('#viewer').open&&!document.querySelector('#grid [data-id="900001"]'));
+  document.querySelector('[data-view="trash"]').click();
+  await wait(()=>document.querySelector('#grid [data-id="900001"]'));
+  document.querySelector('#grid [data-id="900001"]').click();
+  await wait(()=>document.querySelector('#viewer').open);
+  document.querySelector('#viewerRestore').click();
+  await wait(()=>!document.querySelector('#viewer').open&&!document.querySelector('#grid [data-id="900001"]'));
+  document.querySelector('[data-view="image"]').click();
+  await wait(()=>document.querySelector('#grid [data-id="900001"]'));
+  check(pipeline.busy&&pipeline.stage==='conversion','Photo visibility leaves conversion running');
+  passed.push('Photo trash and restore immediately refresh gallery during conversion');
+  pipeline={busy:false};
+  document.querySelector('[data-view="imports"]').click();
+  await wait(()=>!buttons(1)[1].disabled);
+  document.body.dataset.role='guest';
+  check(getComputedStyle(document.querySelector('#storageSettings')).display==='none','Guest cannot configure storage');
+  check(getComputedStyle(buttons(1)[1]).display==='none','Guest controls hidden');
+  check(getComputedStyle(group(1).querySelector('.pipeline-options')).display==='none','Guest options hidden');
+  document.body.dataset.role='admin';
+  passed.push('Guest controls hidden');
+  group(1).open=true;group(2).open=true;
+  const unsupportedStyle=getComputedStyle(group(2).querySelector('.import-unsupported>h4'));
+  for(const label of group(2).querySelectorAll('.pipeline-heading>strong')){
+   const stageStyle=getComputedStyle(label);
+   check(['fontFamily','fontSize','fontWeight','lineHeight'].every(key=>unsupportedStyle[key]===stageStyle[key]),'Unsupported heading typography matches stage labels');
+  }
+  passed.push('Unsupported heading typography matches stage labels');
+  check(document.documentElement.scrollWidth<=innerWidth,'No horizontal page overflow');
+  check([...document.querySelectorAll('.pipeline-heading button')].every(el=>el.getBoundingClientRect().right<=innerWidth),'Stage controls stay inside viewport');
+  check(failures.length===0,'No browser errors: '+failures.join('; '));
+  passed.push('Controls fit viewport; no browser errors');
+  document.querySelector('[data-view="settings"]').click();
+  await wait(()=>!document.querySelector('#storage').hidden&&!document.querySelector('#storageRefresh').disabled);
+  document.querySelector('#storageSettings').scrollIntoView({block:'start'});
+  const report=document.createElement('pre');report.id='browser-test-result';
+  report.textContent=JSON.stringify({ok:true,viewport:[innerWidth,innerHeight],checks:passed});
+  report.hidden=true;document.body.append(report);
+  if(parent!==window)parent.postMessage(report.textContent,location.origin);
+ }catch(error){
+  const report=document.createElement('pre');report.id='browser-test-result';
+  report.textContent=JSON.stringify({ok:false,error:String(error),checks:passed,failures});document.body.append(report);
+  if(parent!==window)parent.postMessage(report.textContent,location.origin);
+ }
+});
