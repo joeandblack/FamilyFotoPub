@@ -18,16 +18,22 @@ verify = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(verify)
 
 
-@pytest.mark.parametrize('password,valid', [('test-only-password-123', True), ('short', False), ('', False)])
+@pytest.mark.parametrize('password,valid', [('test-only-password-123', True),
+                                         ('Gr\u00fc\u00dfe-\u6771\u4eac-\U0001f511-password', True),
+                                         ('short', False), ('', False)])
 def test_unattended_password_is_hashed_not_logged(monkeypatch, tmp_path, capsys, password, valid):
     from installer import configure
     monkeypatch.setattr(configure, 'ROOT', tmp_path)
     monkeypatch.setattr(sys, 'argv', ['configure.py', '--password-stdin'])
-    monkeypatch.setattr(sys, 'stdin', io.StringIO(password + '\n'))
+    # Redirected Windows stdin can use a legacy code page even when the sender
+    # deliberately writes UTF-8. The installer must decode the bytes itself.
+    monkeypatch.setattr(sys, 'stdin', io.TextIOWrapper(io.BytesIO((password + '\n').encode('utf-8')), encoding='cp1252'))
     if valid:
         configure.main()
         config = json.loads((tmp_path / 'config/local.json').read_text())
         assert config['browser_password_hash']
+        from app.auth import verify_password
+        assert verify_password({'password_hash': config['browser_password_hash']}, password)
         assert password not in (tmp_path / 'config/local.json').read_text()
         assert password not in capsys.readouterr().out
         assert config['source'] == config['destination'] == {}
@@ -91,7 +97,10 @@ def test_sandbox_package_excludes_private_files(tmp_path, automated):
     assert (package / 'face_detect/api/service.py').exists()
     assert (package / 'face_detect/web/automatic-people-preview.mjs').exists()
     assert (package / 'installer/native_people.py').read_bytes() == (ROOT / 'installer/native_people.py').read_bytes()
-    assert verify_release(package)['dirty'] is False
+    # Inspect the same extended-length destination used by the extractor, even
+    # on hosts where the system-wide long-path policy is disabled.
+    extended_package = Path('\\\\?\\' + str(package.resolve()))
+    assert verify_release(extended_package)['dirty'] is False
     config = ET.parse(config_path).getroot()
     mappings = config.findall('MappedFolders/MappedFolder')
     assert len(mappings) == (2 if automated else 1)

@@ -101,7 +101,7 @@ def test_mac_config_has_deferred_storage_and_tool_paths(monkeypatch, tmp_path):
     monkeypatch.setattr(configure, 'ROOT', tmp_path)
     monkeypatch.setattr(sys, 'argv', ['configure.py', '--password-stdin', '--database-port',
                                     '5433', '--web-port', '4341', *tools])
-    monkeypatch.setattr(sys, 'stdin', io.StringIO('testing-mac-password-only\n'))
+    monkeypatch.setattr(sys, 'stdin', io.TextIOWrapper(io.BytesIO(b'testing-mac-password-only\n'), encoding='utf-8'))
     configure.main()
     config = json.loads((tmp_path / 'config/local.json').read_text())
     assert config['database']['port'] == 5433

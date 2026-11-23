@@ -25,7 +25,7 @@ def main():
     parser.add_argument('--ffmpeg')
     parser.add_argument('--ffprobe')
     parser.add_argument('--password-stdin', action='store_true',
-                        help='Read one password line from redirected stdin for unattended setup.')
+                        help='Read one UTF-8 password line from redirected stdin for unattended setup.')
     args=parser.parse_args()
     if args.database_port == args.web_port:
         parser.error('Database and web ports must differ.')
@@ -55,7 +55,7 @@ def main():
     if args.password_stdin:
         if sys.stdin.isatty():
             raise SystemExit('--password-stdin requires redirected input.')
-        password = sys.stdin.readline().rstrip('\r\n')
+        password = sys.stdin.buffer.readline().decode('utf-8').rstrip('\r\n')
         confirmation = password
     else:
         password = getpass.getpass('Administrator password (at least 12 characters): ')

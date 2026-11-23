@@ -104,6 +104,46 @@ def test_only_the_restore_child_gets_the_frame(tmp_path):
     assert b'horse' not in result.stdout + result.stderr
 
 
+@pytest.mark.parametrize('encoding', ['[Text.Encoding]::ASCII', '[Text.UTF8Encoding]::new($true)'])
+@pytest.mark.parametrize('sender', ['line', 'framed', 'restore', 'check'])
+def test_password_pipes_are_exact_bytes_independent_of_console_encoding(tmp_path, encoding, sender):
+    import base64
+    from app.backup import passwords
+    password = 'Gr\u00fc\u00dfe-\u6771\u4eac-\U0001f511-"quoted"'
+    encoded = base64.b64encode(password.encode('utf-8')).decode('ascii')
+    expected = (password + '\n').encode('utf-8') if sender == 'line' else passwords.frame(password)
+    expected64 = base64.b64encode(expected).decode('ascii')
+    child = tmp_path / 'pipe_probe.py'
+    child.write_text('import base64,json,sys\n'
+                     f'expected=base64.b64decode({expected64!r})\n'
+                     'actual=sys.stdin.buffer.read()\n'
+                     'print(json.dumps({"ok":actual==expected}), flush=True)\n', encoding='utf-8')
+    prefix = (f"$ErrorActionPreference='Stop'; [Console]::InputEncoding={encoding}; "
+              f"[Console]::OutputEncoding={encoding}; "
+              f"Add-Type -Path {literal(WINDOWS / 'setup-run.cs')}; "
+              f". {literal(WINDOWS / 'setup-password.ps1')}; "
+              f"$secret=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{encoded}')); ")
+    if sender in ('line', 'framed'):
+        argument = '$secret' if sender == 'line' else '([FamilyFotoSetupRun]::Frame($secret))'
+        method = 'Start' if sender == 'line' else 'StartFramed'
+        code = (prefix + f"$r=New-Object FamilyFotoSetupRun; $r.{method}({literal(sys.executable)}, "
+                f"[string[]]@({literal(child)}), {literal(tmp_path)}, {argument}, {literal(tmp_path / 'pipe.log')}); "
+                "while (-not $r.Finished) { Start-Sleep -Milliseconds 20 }; $r.Close(); "
+                "$line=$null; while ($r.Lines.TryDequeue([ref]$line)) { $line }; 'exit=' + $r.ExitCode")
+    elif sender == 'restore':
+        code = prefix + (f"$code=Invoke-SetupPasswordChild {literal(sys.executable)} @({literal(child)}) "
+                         "([FamilyFotoSetupRun]::Frame($secret)); 'exit=' + $code")
+    else:
+        code = prefix + ("$answer=Invoke-SetupPasswordCheck 'R' 'R' 'B' ([FamilyFotoSetupRun]::Frame($secret)) "
+                         f"60000 @({literal(sys.executable)}, (ConvertTo-SetupArgument {literal(child)})); "
+                         "$answer | ConvertTo-Json -Compress")
+    result = run_powershell(code, b'')
+    assert result.returncode == 0, result.stderr.decode(errors='replace')
+    output = result.stdout.decode('utf-8-sig').replace(' ', '')
+    assert '"ok":true' in output
+    assert password.encode('utf-8') not in result.stdout + result.stderr
+
+
 def test_a_hung_password_check_is_stopped_at_its_deadline(tmp_path):
     """The helper never closes its output and never exits: the check must still give up, and kill it."""
     marker = tmp_path / 'started.txt'
