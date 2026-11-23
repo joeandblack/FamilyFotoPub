@@ -233,9 +233,9 @@ python -m app.fastbackup verify --directory F:\new-backup
 python -m app.fastbackup restore --directory F:\new-backup --target-directory D:\new-inactive-restore --host 127.0.0.1 --port 55401 --username restore_admin --pg-restore C:\tools\pg_restore.exe --expected-cluster-directory D:\disposable-postgres --database-budget-bytes 10737418240
 ```
 
-The engine lives in `app.fastbackup`, alongside `app.backup`. Existing
-`python -m fastbackup` commands still delegate to the same CLI; the top-level
-package contains only that compatibility launcher, not a second engine.
+The engine lives in `app.fastbackup`, alongside `app.backup`. Use
+`python -m app.fastbackup` for all Fast backup commands. There is no top-level
+compatibility package.
 
 Capture always uses a new directory (no resume, overwrite, mirror, retirement or automatic cleanup)
 and keeps the offline maintenance gate and database locks for the whole run. Add

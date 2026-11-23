@@ -149,6 +149,36 @@ def same_binding(job, binding):
                for name, root in binding['roots'].items())
 
 
+def write_capture_job(directory, key, binding, identity, library_id, *, engine=None):
+    """Seal the shared ownership record without changing engine-specific retry policy."""
+    job = {**binding, 'id': identity, 'library_id': library_id}
+    if engine is not None:
+        job['engine'] = engine
+    save_private(directory / JOB_RECORD,
+                 {'sealed': Fernet(key).encrypt(json.dumps(job).encode()).decode()})
+
+
+def publish_library_index(directory, key, identity, library_id, catalog, media, counts,
+                          thumbnails, *, guard_factory=SpaceGuard, retire_to=None):
+    """Publish the common recovery index; callers retain admission and completion policy."""
+    payload = {'format': FORMAT, 'id': identity, 'library_id': library_id, 'catalog': reference(catalog),
+               'media_inventory_sha256': media['inventory_sha256'], 'media_files': media['files'],
+               'media_bytes': media['bytes'], 'reconciliation': counts, 'media_encrypted': False,
+               'password': key.binding(), 'capture_mode': 'offline', 'activation_allowed': False}
+    if retire_to is not None:
+        payload['migration_target'] = retire_to
+    if thumbnails is not None:
+        payload['thumbnails'] = reference(thumbnails)
+    if not media['content_verified']:
+        # Standard single-pass copies still need destination read-back before restore.
+        payload['media_read_back'] = False
+    write_handover(directory)
+    raw = json.dumps(payload, sort_keys=True).encode()
+    seal_stream(io.BytesIO(raw), directory / 'library', key, estimated_bytes=len(raw),
+                metadata={'kind': FORMAT}, guard_factory=guard_factory)
+    return payload
+
+
 def resumable_capture(config_root, data_root, media_root, directory, key, retire_to):
     """Refuse, before taking the gate, anything but this same interrupted capture."""
     retired = data_root / '.recovery-admission/retired.json'
@@ -328,10 +358,9 @@ def capture_library(endpoint, pg_dump, config_root, data_root, media_root, direc
                 create_private_directory(directory, allow_unprotected=allow_unprotected)
                 # Durably, before anything sealed with this key is written.
                 publish_password(directory, key)
-                job = {**capture_binding(config_root, data_root, media_root, directory, retire_to),
-                       'id': identity, 'library_id': library_id}
-                save_private(directory / JOB_RECORD,
-                             {'sealed': Fernet(key).encrypt(json.dumps(job).encode()).decode()})
+                write_capture_job(directory, key,
+                                  capture_binding(config_root, data_root, media_root, directory, retire_to),
+                                  identity, library_id)
             journal(directory, identity, 'media-inventory')
             timer.path = directory / TIMING
             with timer.phase('media-inventory'):
@@ -374,21 +403,8 @@ def capture_library(endpoint, pg_dump, config_root, data_root, media_root, direc
             reconcile_uploads(db, data_root)
         catalog = publish_catalog(directory / 'catalog', key, identity, components,
                                   guard_factory=guard_factory, library_id=library_id)
-        payload = {'format': FORMAT, 'id': identity, 'library_id': library_id, 'catalog': reference(catalog),
-                   'media_inventory_sha256': media['inventory_sha256'], 'media_files': media['files'],
-                   'media_bytes': media['bytes'], 'reconciliation': counts, 'media_encrypted': False,
-                   'password': key.binding(), 'capture_mode': 'offline', 'activation_allowed': False}
-        if retire_to is not None:
-            payload['migration_target'] = retire_to
-        if thumbnails is not None:
-            payload['thumbnails'] = reference(thumbnails)
-        if not media['content_verified']:
-            # Every source file matched the catalog as it was copied. No copy has been read yet.
-            payload['media_read_back'] = False
-        write_handover(directory)
-        raw = json.dumps(payload, sort_keys=True).encode()
-        seal_stream(io.BytesIO(raw), directory / 'library', key, estimated_bytes=len(raw),
-                    metadata={'kind': FORMAT}, guard_factory=guard_factory)
+        payload = publish_library_index(directory, key, identity, library_id, catalog, media, counts,
+                                        thumbnails, guard_factory=guard_factory, retire_to=retire_to)
         if retire_to is not None:
             # Admission is still held: no participating writer can change the
             # just-captured source or restart between backup and retirement.

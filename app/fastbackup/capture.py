@@ -1,12 +1,8 @@
 """Standalone full-only capture using the existing password and recovery format."""
-import io
-import json
 import os
 from pathlib import Path
 import uuid
 from contextlib import ExitStack
-
-from cryptography.fernet import Fernet
 
 from app.backup import library as shared
 from app.backup.passwords import BackupKey
@@ -61,10 +57,9 @@ def capture_library(endpoint, pg_dump, config_root, data_root, media_root, direc
             shared.create_private_directory(directory, allow_unprotected=allow_unprotected)
             locks.enter_context(copy_lock(directory))
             shared.publish_password(directory, key)
-            job = {**shared.capture_binding(config_root, data_root, media_root, directory, None),
-                   'id': identity, 'library_id': library_id, 'engine': 'fastbackup-v1'}
-            shared.save_private(directory / shared.JOB_RECORD,
-                                {'sealed': Fernet(key).encrypt(json.dumps(job).encode()).decode()})
+            shared.write_capture_job(directory, key,
+                shared.capture_binding(config_root, data_root, media_root, directory, None),
+                identity, library_id, engine='fastbackup-v1')
             timer.path = directory / shared.TIMING
             stage('media-inventory')
             with timer.phase('media-inventory'):
@@ -100,15 +95,7 @@ def capture_library(endpoint, pg_dump, config_root, data_root, media_root, direc
         stage('publication')
         catalog = shared.publish_catalog(directory / 'catalog', key, identity, components,
                                          guard_factory=guard_factory, library_id=library_id)
-        payload = dict(format=shared.FORMAT, id=identity, library_id=library_id,
-            catalog=shared.reference(catalog), media_inventory_sha256=media['inventory_sha256'],
-            media_files=media['files'], media_bytes=media['bytes'], reconciliation=counts,
-            media_encrypted=False, password=key.binding(), capture_mode='offline', activation_allowed=False)
-        if thumbnails is not None:
-            payload['thumbnails'] = shared.reference(thumbnails)
-        shared.write_handover(directory)
-        raw = json.dumps(payload, sort_keys=True).encode()
-        shared.seal_stream(io.BytesIO(raw), directory / 'library', key, estimated_bytes=len(raw),
-                           metadata={'kind': payload['format']}, guard_factory=guard_factory)
+        payload = shared.publish_library_index(directory, key, identity, library_id, catalog, media,
+                                               counts, thumbnails, guard_factory=guard_factory)
         shared.journal(directory, identity, 'complete')
     return payload
