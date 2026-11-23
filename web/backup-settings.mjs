@@ -36,7 +36,7 @@ export function nextStepsText(runs){
  return `The latest backup is verified, in ${latest.directory}. To move the library to another computer, take that disk to it. On the other computer, choose Restore from a backup when you install FamilyFoto, and enter the administrator password this backup was made with.`;
 }
 // Everything the administrator should know before the library goes offline, in the order it happens.
-export function startBackupSections(plan,{destination,unprotected,copyStrategy='standard'}){
+export function startBackupSections(plan,{destination,unprotected,copyStrategy='fast-full'}){
  const time=plan?.estimate?`about ${durationText(plan.estimate.seconds)}`:'many hours for a large library';
  return [
   {heading:'What happens',items:[
@@ -75,7 +75,7 @@ export function setupBackupSettings({api}){
  section.className='settings-section';
  section.innerHTML=`<summary>Backup and recovery</summary>
  <p id="backupIntro"></p>
- <fieldset id="backupStrategyField" aria-describedby="backupStrategyDescription" hidden><legend>Copy method</legend>
+ <fieldset id="backupStrategyField" aria-describedby="backupStrategyDescription"><legend>Copy method</legend>
  <div class="backup-method-options">
  <label class="backup-method"><input id="backupStrategyFast" type="radio" name="backupStrategy" value="fast-full" checked aria-describedby="backupFastHelp"> Fast backup<span id="backupFastHelp" class="backup-method-tooltip" role="tooltip">${copyMethodDescription('fast-full')}</span></label>
  <label class="backup-method"><input id="backupStrategyStandard" type="radio" name="backupStrategy" value="standard" aria-describedby="backupStandardHelp"> Standard backup<span id="backupStandardHelp" class="backup-method-tooltip" role="tooltip">${copyMethodDescription('standard')}</span></label>
@@ -105,11 +105,10 @@ export function setupBackupSettings({api}){
  const $=id=>document.getElementById(id);let data=null,pending=false,edited=false;
  const status=text=>{$('backupStatus').textContent=text;};
  const post=(url,body)=>api(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
- const selectedMethod=()=>data?.fastbackup_available?section.querySelector('input[name="backupStrategy"]:checked').value:'standard';
+ const selectedMethod=()=>section.querySelector('input[name="backupStrategy"]:checked').value;
  function controls(){
   const unsupported=!data||Boolean(data.unsupported);
   for(const id of ['backupDestination','backupPassword','browseBackupDestination','backupStrategyField','backupUnprotected'])$(id).disabled=pending||unsupported;
-  $('backupStrategyFast').disabled=!data?.fastbackup_available;
   $('startBackup').disabled=pending||unsupported;
  }
  function resetPlan(){$('backupUnprotected').checked=false;controls();}
@@ -126,8 +125,6 @@ export function setupBackupSettings({api}){
   section.hidden=document.body.dataset.role!=='admin';if(section.hidden)return;
   try{
    data=await api('/api/backup');
-   $('backupStrategyField').hidden=!data.fastbackup_available;
-   if(!data.fastbackup_available)$('backupStrategyStandard').checked=true;
    describeMethod();
    if(!edited)$('backupDestination').value=data.preferences.destination;
    $('backupIntro').textContent=data.unsupported||`A backup copies the whole library (about ${size(data.media_bytes)} of media and a ${size(data.database_bytes)} catalog). Both copy methods verify every copied file. FamilyFoto stops while copying and restarts when verification passes. ${estimateText(data.estimate)}`;

@@ -12,7 +12,7 @@ from .cleanup import cleanup_incomplete
 
 
 def parser():
-    root = argparse.ArgumentParser(description='Experimental FamilyFoto capture, verification, inactive restore and explicit cleanup')
+    root = argparse.ArgumentParser(description='FamilyFoto Fast capture, verification, inactive restore and explicit cleanup')
     commands = root.add_subparsers(dest='action', required=True)
     cleanup = commands.add_parser('cleanup-incomplete', help='Preview or explicitly reclaim an owned incomplete fast attempt')
     cleanup.add_argument('--directory', type=Path, required=True)

@@ -2,12 +2,10 @@
 from .diagnostics import ExplainedFailure
 
 
-def capture_strategy(config, payload):
-    strategy = payload.get('copy_strategy', 'standard')
+def capture_strategy(payload, *, default='fast-full'):
+    strategy = payload.get('copy_strategy', default)
     if strategy not in ('standard', 'fast-full'):
         raise ExplainedFailure('Unknown backup copy strategy')
     if payload.get('verification', 'full') != 'full':
         raise ExplainedFailure('Full verification is required')
-    if strategy != 'standard' and (config.get('backup') or {}).get('experimental_fastbackup') is not True:
-        raise ExplainedFailure('Fast backup is not enabled for this installation')
     return strategy

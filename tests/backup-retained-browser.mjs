@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 
 const out=mkdtempSync(resolve('temp/backup-retained-')),profile=join(out,'profile');
 const folders=['D:\\Backups\\'+('long-folder-name-'.repeat(12)),'<img src=x onerror=alert(1)>'];
-let authorized=true,fastAvailable=true;
+let authorized=true;
 const run={authorized:true,state:'failed',copy_strategy:'fast-full',directory:'D:\\Backups\\current',retained_attempts:folders,started_at:'2026-11-19T00:00:00Z'};
 const historyRun={...run,state:'finished',finished_at:'2026-11-19T01:50:01Z',verified_at:'2026-11-19T01:49:30Z'};
 const allowed=new Set(['backup-state.mjs','backup-progress.html','backup-progress.mjs','backup-settings.mjs','confirm-dialog.mjs','deletion-progress.mjs','size.mjs','styles.css','daisyui-5.7.50.css','familyfoto.ico']);
@@ -15,7 +15,7 @@ const server=createServer((req,res)=>{
  if(req.url==='/api/backup-run'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify(authorized?run:{authorized:false,state:'failed'}));return;}
  if(req.url==='/settings'){
   res.setHeader('Content-Type','text/html');
-  res.end(`<html data-theme="familyfoto"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/web/styles.css"><body data-role="admin"><main><section id="storage"></section></main><script type="module">import {setupBackupSettings} from '/web/backup-settings.mjs';const api=async url=>url==='/api/backup'?{fastbackup_available:${fastAvailable},preferences:{destination:''},media_bytes:1,database_bytes:1,runs:[${JSON.stringify(historyRun)}]}:{runs:[],backups:[],preferences:{}};await setupBackupSettings({api}).load();window.ready=true;</script></body></html>`);return;
+  res.end(`<html data-theme="familyfoto"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/web/styles.css"><body data-role="admin"><main><section id="storage"></section></main><script type="module">import {setupBackupSettings} from '/web/backup-settings.mjs';const api=async url=>url==='/api/backup'?{preferences:{destination:''},media_bytes:1,database_bytes:1,runs:[${JSON.stringify(historyRun)}]}:{runs:[],backups:[],preferences:{}};await setupBackupSettings({api}).load();window.ready=true;</script></body></html>`);return;
  }
  const name=req.url==='/progress'?'backup-progress.html':req.url.replace(/^\/web\//,'');
  if(!allowed.has(name)){res.writeHead(404);res.end();return;}
@@ -51,6 +51,7 @@ try{
  assert.equal(await evaluate('document.querySelectorAll("#runRetainedFolders li").length'),0);
  await cdp('Page.navigate',{url:origin+'/settings'});
  for(let n=0;n<100&&!await evaluate('window.ready===true');n++)await sleep(100);
+ await evaluate('document.getElementById("backupSettings").open=true');
  assert.deepEqual(await evaluate('[...document.querySelectorAll("#backupRuns td ul li")].map(e=>e.textContent)'),folders);
  assert.equal(await evaluate('document.querySelectorAll("#backupRuns img").length'),0);
  assert.equal(await evaluate('document.querySelectorAll("#backupRuns th")[2].textContent'),'Total time');
@@ -108,13 +109,12 @@ try{
   const historyShot=await cdp('Page.captureScreenshot');writeFileSync(join(out,`history-${width}.png`),Buffer.from(historyShot.data,'base64'));
  }
  const shot=await cdp('Page.captureScreenshot');writeFileSync(join(out,'history.png'),Buffer.from(shot.data,'base64'));
- fastAvailable=false;
  await evaluate('window.ready=false');
  await cdp('Page.navigate',{url:origin+'/settings'});
  for(let n=0;n<100&&!await evaluate('window.ready===true');n++)await sleep(100);
- assert.equal(await evaluate('document.getElementById("backupStrategyField").hidden'),true);
- assert.equal(await evaluate('document.querySelector("input[name=backupStrategy]:checked").value'),'standard');
- assert.equal(await evaluate('document.getElementById("backupStrategyFast").disabled'),true);
+ assert.equal(await evaluate('document.getElementById("backupStrategyField").hidden'),false);
+ assert.equal(await evaluate('document.querySelector("input[name=backupStrategy]:checked").value'),'fast-full');
+ assert.equal(await evaluate('document.getElementById("backupStrategyFast").disabled'),false);
  console.log('Retained folder browser checks passed; screenshots: '+out);
 }finally{
  if(ws)ws.close();

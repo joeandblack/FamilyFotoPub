@@ -1259,7 +1259,8 @@ def test_the_overview_and_the_plan_carry_the_estimate(api, world):
     record(world, state='finished', started_at='2026-11-09T00:00:00+00:00',
            verified_at='2026-11-09T02:00:00+00:00', media_bytes=50)
     assert api.client.get('/api/backup').json()['estimate']['seconds'] == 14400
-    assert api.client.post('/api/backup/plan', json=start_body(world)).json()['estimate']['seconds'] == 14400
+    assert api.client.post('/api/backup/plan', json=start_body(world, copy_strategy='standard')).json()['estimate']['seconds'] == 14400
+    assert api.client.post('/api/backup/plan', json=start_body(world)).json()['estimate'] is None
 
 
 def test_a_mac_backup_keeps_the_mac_awake_for_the_runners_life(monkeypatch):

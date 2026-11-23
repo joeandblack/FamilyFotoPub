@@ -192,9 +192,9 @@ USB hard disks are much slower and haven't been measured.
 
 ## Standard and Fast
 
-The Settings copy-method selector has **Standard** and **Fast**. Fast appears only when the
-installation sets `backup.experimental_fastbackup: true` (internally the `fast-full` strategy), and is
-then selected by default; without it every backup uses Standard. Both
+The Settings copy-method selector has **Standard** and **Fast**. Fast is available on every
+installation and selected by default (internally the `fast-full` strategy). New API requests
+that omit the method also select Fast. Standard remains an explicit choice. Both
 verify every copied file and publish the same authenticated full-library format
 (`familyfoto-library-plain-media-v2`), which every restore, migration and activation path reads.
 Unknown formats fail closed. The selected method's description shows below the selector.

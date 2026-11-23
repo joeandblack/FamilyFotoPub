@@ -327,7 +327,8 @@ def capture(run, config, key):
     """`key` was made from the administrator password when this process started, and is kept in
     memory for this run's retries only. It is never written down."""
     value = run.value
-    strategy = capture_strategy(config, value)
+    # Runs recorded before method selection existed used the resumable engine.
+    strategy = capture_strategy(value, default='standard')
     database = config['database']
     endpoint = Endpoint(database['host'], database['port'], database['dbname'], database['user'], database.get('password'))
     directory = Path(value['directory'])
@@ -417,7 +418,7 @@ def run_backup(run_id, key=None):
         run.update(state='failed', error='The backup was interrupted before it finished.')
     else:
         try:
-            capture_strategy(config, run.value)
+            capture_strategy(run.value, default='standard')
             stop_application(run)
         except Exception as error:
             # Nothing has been gated yet, and the server may still hold the address.

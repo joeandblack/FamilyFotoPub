@@ -79,7 +79,7 @@ def test_real_fast_full_runner_capture(postgres, tmp_path, monkeypatch):  # noqa
     for path in (config, data, media):
         path.mkdir()
     settings = dict(database=dict(host=params['host'], port=params['port'], dbname=source, user=params['user']),
-                    destination=dict(root=str(media)), backup=dict(experimental_fastbackup=True))
+                    destination=dict(root=str(media)))
     (config / 'local.json').write_text(json.dumps(settings))
     (media / 'photo.jpg').write_bytes(b'fixture photo')
     monkeypatch.setattr(admin_runner, 'configuration_root', lambda: config)
