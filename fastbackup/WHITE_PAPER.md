@@ -45,12 +45,12 @@ software and database tools supplied by the destination installation.
 | Interrupted attempt | Retry using Standard's resume rules | Start a new full copy in a new folder |
 | Media assurance | Full verification | Full verification |
 | Application availability | Offline during capture | Offline during capture |
-| Default selection | Yes | Explicit selection |
+| Default selection | Explicit selection | Yes |
 
-Fast is exposed when the installation enables
-`backup.experimental_fastbackup: true`; its internal strategy identifier is
-`fast-full`. The user-facing name is **Fast**. These identifiers are configuration
-details, not separate assurance levels.
+Fast is available on every installation and is the default for new backups; its
+internal strategy identifier is `fast-full`. Standard remains selectable. Both
+methods require full verification. Existing runs retain their recorded method;
+older runs without a method continue to use Standard when retried.
 
 ## 2. Consistency and operating assumptions
 

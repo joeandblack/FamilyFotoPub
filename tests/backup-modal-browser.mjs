@@ -34,7 +34,7 @@ const server=createServer(async(req,res)=>{
  }
  if(req.url==='/face_detect/web/face-service.mjs'){res.setHeader('Content-Type','text/javascript');res.end(readFileSync(resolve('face_detect/web/face-service.mjs')));return;}
  if(req.url==='/api/face-service'){faceRequests++;json({state:'stopped',message:'Face service stopped',start_with_app:false});return;}
- if(req.url==='/api/backup'){json({fastbackup_available:true,preferences:{destination:'F:/test-backup'},media_bytes:2048,database_bytes:10,runs:[]});return;}
+ if(req.url==='/api/backup'){json({preferences:{destination:'F:/test-backup'},media_bytes:2048,database_bytes:10,runs:[]});return;}
  if(req.url==='/api/backup/restores'){json({runs:[],backups:[]});return;}
  if(req.url==='/api/backup/plan'){throw Error('Settings must not check twice');}
  if(req.url==='/api/backup/start'){let body='';for await(const chunk of req)body+=chunk;startBody=JSON.parse(body);startCount++;setTimeout(()=>json(rejectPlan?{code:'backup_plan_rejected',detail:'Not enough space',problems:['Not enough space: needed 10 GiB; free 1 GiB.','Enter the correct password.']}:rejectStart?{error:'fixture start rejected'}:{run:'fixture'},rejectPlan||rejectStart?409:200),1600);return;}

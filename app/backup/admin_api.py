@@ -86,7 +86,6 @@ def overview(request: Request):
         media_bytes, database_bytes = sizes(db)
         busy = media_busy(db)
     return {'unsupported': support(), 'preferences': read_preferences(), 'protects': PROTECTS, 'media_bytes': media_bytes,
-            'fastbackup_available': (load_config().get('backup') or {}).get('experimental_fastbackup') is True,
             'database_bytes': database_bytes, 'busy': busy, 'runs': history(),
             'estimate': estimate_seconds(all_runs(), media_bytes)}
 
@@ -107,7 +106,7 @@ def plan_for(config, payload):
 
 def inspect_plan(config, payload):
     try:
-        strategy = capture_strategy(config, payload)
+        strategy = capture_strategy(payload)
     except ExplainedFailure as error:
         raise HTTPException(422, str(error)) from error
     destination, password = payload.get('destination'), payload.get('password', '')
@@ -216,7 +215,7 @@ def begin_run(request, payload):
                'destination': destination, 'allow_unprotected': allowed,
                # The run verifies every copy afterwards, so the capture needn't read them back too.
                'single_pass': True,
-               'copy_strategy': report.get('copy_strategy', 'standard'),
+               'copy_strategy': report['copy_strategy'],
                'verification': payload.get('verification', 'full'),
                'pg_dump': str(find_pg_dump(config)), 'database_budget': report['database_bytes'] * 2 + DUMP_ALLOWANCE,
                'token_sha256': token_digest(token), 'server_pid': os.getpid(), 'restart': restart_plan()})
