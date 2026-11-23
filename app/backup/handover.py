@@ -2,7 +2,9 @@
 from pathlib import Path
 import logging
 import os
+import re
 import stat
+import subprocess
 import tempfile
 
 from .space import directory_identity
@@ -15,6 +17,46 @@ FILES = ('README.txt',)
 # The Terminal launcher (Homebrew, Git) for installations made from source, which have no
 # release to name. A release installation's backups use FamilyFoto Setup (RELEASE.txt) instead.
 LAUNCHER = 'restore-familyfoto-mac.command'
+# The launcher's empty commit line, filled in with the code that makes the backup.
+EMPTY_COMMIT = b"commit=''\n"
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def _git(root, *args):
+    result = subprocess.run(['git', '-C', str(root), *args], capture_output=True, text=True,
+                            timeout=60, stdin=subprocess.DEVNULL)
+    if result.returncode != 0:
+        raise OSError('git ' + args[0] + ' failed')
+    return result.stdout.strip()
+
+
+def source_commit(root=ROOT):
+    """The commit of this installation's code, only when the code is shown to be exactly it; else ''.
+
+    A Git checkout: HEAD, and no tracked file differs from it. A release folder (not a checkout):
+    its release-manifest.json commit, and every file the manifest lists matches its SHA-256.
+    Files outside those (untracked files in a checkout, or added to a release folder) are not
+    covered. Anything else gets '', and the launcher then refuses rather than restore with other code."""
+    try:
+        if (root / '.git').exists():
+            # Only in a checkout: on a Mac without Command Line Tools, git itself opens an install prompt.
+            commit = _git(root, 'rev-parse', '--verify', 'HEAD^{commit}')
+            if _git(root, 'status', '--porcelain', '--untracked-files=no'):
+                return ''  # local changes: HEAD is not the code that made this backup
+        else:
+            from installer.release import verify
+            commit = verify(root)['source_commit']
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
+        return ''
+    return commit if isinstance(commit, str) and re.fullmatch('[0-9a-f]{40}', commit) else ''
+
+
+def launcher(commit):
+    """The Terminal launcher, set to download exactly `commit` (empty: it refuses to run)."""
+    template = (SOURCE / LAUNCHER).read_bytes()
+    if template.count(EMPTY_COMMIT) != 1:
+        raise ValueError('Mac restore launcher has no commit line')
+    return template.replace(EMPTY_COMMIT, f"commit='{commit}'\n".encode())
 # Written only when this installation came from a shared-installer release.
 RELEASE = 'RELEASE.txt'
 
@@ -96,6 +138,10 @@ def write_handover(backup, receipt_path=None):
         _regular_or_absent(folder / LAUNCHER)
         (folder / LAUNCHER).unlink(missing_ok=True)
     else:
-        _publish(folder, LAUNCHER, (SOURCE / LAUNCHER).read_bytes(), 0o700)
+        commit = source_commit()
+        if not commit:
+            logging.getLogger(__name__).warning('The Mac restore launcher names no code version: this installation '
+                                                'has local changes or cannot be identified, so it will refuse to run')
+        _publish(folder, LAUNCHER, launcher(commit), 0o700)
     sync_directory(folder)
     write_windows_handover(backup, receipt_path)

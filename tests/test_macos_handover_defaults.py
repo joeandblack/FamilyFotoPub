@@ -35,5 +35,56 @@ class LauncherDefaultsTests(unittest.TestCase):
                     self.assertIn(f'BACKUP={expected}\n', result.stdout)
 
 
+
+def git(*args, cwd):
+    return subprocess.run(['git', *args], cwd=cwd, check=True, capture_output=True, text=True).stdout.strip()
+
+
+@unittest.skipUnless(sys.platform == 'darwin', 'The launcher runs only on macOS (Bash at /bin/bash)')
+class ExactCommitTests(unittest.TestCase):
+    """The launcher's real download block, run against a local repository instead of GitHub."""
+
+    def download(self, repository, commit):
+        source = SCRIPT.read_text()
+        block = source[source.index('staging='):source.index('mkdir -p -- "$install_folder"')]
+        harness = ('fail() { printf "FAILED: %s\n" "$*"; exit 1; }\n'
+                   f'repository={repository}\ncommit={commit}\n' + block +
+                   'printf "HEAD=%s\n" "$(git -C "$staging/source" rev-parse HEAD)"\n'
+                   'printf "FILE=%s\n" "$(cat "$staging/source/version.txt")"\n')
+        return subprocess.run(['/bin/bash', '-c', harness], text=True, capture_output=True)
+
+    def test_downloads_exactly_the_backups_commit_not_the_branch_tip(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = Path(temporary) / 'FamilyFotoPub'
+            repo.mkdir()
+            git('init', '-q', '-b', 'main', cwd=repo)
+            for version in ('made the backup', 'moved on since'):
+                (repo / 'version.txt').write_text(version)
+                git('add', 'version.txt', cwd=repo)
+                git('-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-q', '-m', version, cwd=repo)
+            older = git('rev-parse', 'HEAD~1', cwd=repo)
+            # Fetching a commit that is not a branch tip, as GitHub allows.
+            git('config', 'uploadpack.allowAnySHA1InWant', 'true', cwd=repo)
+            result = self.download('file://' + str(repo), older)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn(f'HEAD={older}\n', result.stdout)
+            self.assertIn('FILE=made the backup\n', result.stdout)
+            missing = self.download('file://' + str(repo), '0' * 40)
+            self.assertNotEqual(missing.returncode, 0)
+            self.assertIn('FAILED: Could not download FamilyFoto 0000000', missing.stdout)
+            self.assertIn('not on GitHub', missing.stdout)
+
+    def test_a_launcher_without_a_commit_refuses_before_asking_anything(self):
+        source = SCRIPT.read_text()
+        check = next(line for line in source.splitlines() if line.startswith('[[ "$commit" =~'))
+        for commit, refused in (("''", True), ('abc', True), ('a' * 40, False)):
+            with self.subTest(commit=commit):
+                harness = 'fail() { printf "FAILED: %s\n" "$*"; exit 1; }\n' + f'commit={commit}\n' + check + '\necho OK\n'
+                result = subprocess.run(['/bin/bash', '-c', harness], text=True, capture_output=True)
+                self.assertEqual('FAILED' in result.stdout, refused, result.stdout)
+        # The check comes before the installation-folder question.
+        self.assertLess(source.index(check), source.index('read -r -p'))
+
+
 if __name__ == '__main__':
     unittest.main()
