@@ -22,7 +22,7 @@ test('AVI, fully validated and older conversions also offer their originals for 
 
 test('review loads only the selected import, paginates 100 thumbnails and opens the actual video',async()=>{
  const old=globalThis.document;
- const make=tag=>({tag,children:[],style:{},classList:{},after(){},append(...nodes){this.children.push(...nodes);},replaceChildren(...nodes){this.children=nodes;},setAttribute(){},addEventListener(){},showModal(){this.open=true;},close(){this.open=false;}});
+ const make=tag=>({tag,children:[],style:{},classList:{},after(){},append(...nodes){this.children.push(...nodes);},replaceChildren(...nodes){this.children=nodes;},setAttribute(){},removeAttribute(){},addEventListener(){},showModal(){this.open=true;},close(){this.open=false;}});
  globalThis.document={createElement:make,body:make('body')};
  try{
   const requests=[],opened=[],writes=[];

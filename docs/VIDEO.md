@@ -185,7 +185,9 @@ managed retained copy, never a source-folder file. The catalog keeps the origina
 SHA-256 (`media.sha256`), so importing the same file again is still recorded as a duplicate, and
 the deletion receipt (`original_deleted_at`) lets backups accept the missing original. The MP4 is
 lossy: after deletion the library can't convert that item again, and only the import source keeps
-full quality. Progress shows the filename and count. A
+full quality. Videos are deleted one at a time: the bar and count show progress, and each
+finished video's tile leaves the list without reloading the others. **Stop** ends the run after
+the video being deleted finishes; the rest stay selected, so Delete continues from there. A
 durable deletion intent makes an interrupted request retryable. Unselected or failed items stay
 listed. Permanent deletion from Trash is a separate operation that can also remove retained
 originals.
