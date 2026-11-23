@@ -1,8 +1,13 @@
 import {confirmAction} from './confirm-dialog.mjs';
 
+const RETAINED_FORMATS=['.avi','.flv','.mts'];
+const DELETABLE_PLAYBACK=['review-required','user-reviewed','decoded',undefined,null];
+
+// The server's retained-originals list is authoritative (it checks the disk); this only narrows it.
 export function needsPlaybackReview(item){
- const validation=item.video_metadata?.conversion_validation;
- return item.kind==='video'&&!!item.original_relative_path&&['done','warning'].includes(item.conversion_state)&&['review-required','user-reviewed'].includes(validation?.playback)&&!validation.original_deleted_at;
+ const validation=item.video_metadata?.conversion_validation||{};
+ const original=String(item.original_relative_path||'').toLowerCase();
+ return item.kind==='video'&&RETAINED_FORMATS.some(ext=>original.endsWith(ext))&&['done','warning'].includes(item.conversion_state)&&DELETABLE_PLAYBACK.includes(validation.playback)&&!validation.original_deleted_at;
 }
 
 export function setupConversionReview({api,openViewer}){
@@ -11,7 +16,7 @@ export function setupConversionReview({api,openViewer}){
  const header=node('div');header.className='section-heading';
  const title=node('h3'),close=node('button');close.type='button';close.title='Close';close.setAttribute('aria-label','Close playback review');
  close.innerHTML='<i data-lucide="x" aria-hidden="true"></i>';close.onclick=()=>{if(!busy)dialog.close();};header.append(title,close);
- const message=node('p','Converted videos with retained originals. Full playback verification may have been skipped.'),status=node('p');
+ const message=node('p','Converted videos whose AVI, FLV or MTS original is still kept. Play one to check the MP4 before deleting its original. Full playback verification may have been skipped for MTS and FLV.'),status=node('p');
  message.className=status.className='muted';status.setAttribute('role','status');
  const controls=node('div');controls.style.cssText='display:flex;align-items:center;gap:8px;flex-wrap:wrap';
  const refresh=node('button','Refresh'),previous=node('button','Previous'),next=node('button','Next'),position=node('span');
@@ -48,11 +53,12 @@ export function setupConversionReview({api,openViewer}){
  async function load(){
   const ticket=++revision;items=[];page=1;selected.clear();selecting=false;loading=true;render();status.textContent='Loading videos for playback review...';
   try{
-   const seen=new Set();
-   for(let sourcePage=1;;sourcePage++){
+   const seen=new Set(),retained=new Set((await api(`/api/import/${batch.id}/retained-originals`)).ids);
+   if(ticket!==revision||!dialog.open)return;
+   for(let sourcePage=1;retained.size;sourcePage++){
     const result=await api('/api/media?'+new URLSearchParams({kind:'video',import_job:String(batch.id),page:sourcePage}));
     if(ticket!==revision||!dialog.open)return;
-    for(const item of result.items)if(needsPlaybackReview(item)&&!seen.has(item.id)){seen.add(item.id);items.push(item);}
+    for(const item of result.items)if(retained.has(item.id)&&needsPlaybackReview(item)&&!seen.has(item.id)){seen.add(item.id);items.push(item);}
     render();
     if(sourcePage>=result.pages)break;
    }

@@ -11,7 +11,7 @@ const server=createServer((req,res)=>{
   res.setHeader('Content-Type','text/html');res.end(`<html data-theme="familyfoto"><link rel="stylesheet" href="/styles.css"><script type="module">
   import {setupConversionReview} from '/conversion-review.mjs';
   window.writes=[];
-  window.review=setupConversionReview({api:async(url,options)=>{if(options?.method==='POST'){window.writes.push(url);await new Promise(r=>setTimeout(r,300));return {ok:true};}return {pages:1,items:Array.from({length:105},(_,i)=>({id:i+1,kind:'video',conversion_state:'done',original_relative_path:'original.mts',name:'Video '+(i+1)+'.MTS',video_metadata:{conversion_validation:{playback:'review-required'}}}))};},openViewer:(id)=>window.played=id});window.ready=true;
+  window.review=setupConversionReview({api:async(url,options)=>{if(options?.method==='POST'){window.writes.push(url);await new Promise(r=>setTimeout(r,300));return {ok:true};}if(url.endsWith('/retained-originals'))return {ids:Array.from({length:105},(_,i)=>i+1)};return {pages:1,items:Array.from({length:105},(_,i)=>({id:i+1,kind:'video',conversion_state:'done',original_relative_path:'original.mts',name:'Video '+(i+1)+'.MTS',video_metadata:{conversion_validation:{playback:'review-required'}}}))};},openViewer:(id)=>window.played=id});window.ready=true;
   </script>`);return;
  }
  const name=req.url.slice(1);if(!['styles.css','conversion-review.mjs','confirm-dialog.mjs'].includes(name)){res.writeHead(404);res.end();return;}

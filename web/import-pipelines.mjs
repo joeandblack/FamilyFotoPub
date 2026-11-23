@@ -151,10 +151,11 @@ export function renderPipelines(container,batches,pipeline,callbacks){
       const c=p.counts;
       if(c.skipped)row.append(element('div',`Reviewed - skipped: ${c.skipped}`,'muted'));
       row.append(element('div',stage==='import'?`${batch.total.toLocaleString()} files / ${size(batch.total_bytes)} · Copied ${c.imported||0} · Duplicates ${importDuplicates(batch).count}${c.unsupported?` · Unsupported ${c.unsupported}`:''} · Pending ${c.pending||0} · Errors ${c.error||0}`:`Done ${c.done||0} · Warnings ${c.warning||0}${stage==='conversion'?` - Output duplicates ${c.duplicate||0}`:''}${stage==='metadata'?` · Ancillary ${c.ancillary||0}`:''} · Pending ${p.pending}`,'pipeline-counts'));
+      // Any finished conversion may still keep its original; the review lists the ones on disk.
+      if(stage==='conversion'&&reviewPlayback&&(c.done||c.warning)){const review=element('button','Review playback','issue-count');review.type='button';review.onclick=()=>reviewPlayback(batch);row.append(review);}
       if(status){
         if(stage==='conversion'&&status.execution_policy?.retained_original_validation==='quick'){
           row.append(element('div','MTS / FLV: fast verification · Originals retained','muted'));
-          if(reviewPlayback){const review=element('button','Review playback','issue-count');review.type='button';review.onclick=()=>reviewPlayback(batch);row.append(review);}
         }
         if(stage==='duplicates'&&status.trashed_duplicates)row.append(element('div',`Moved to Trash: ${status.trashed_duplicates}`,'muted'));
         const key=batch.id+stage;if(!estimates.has(key))estimates.set(key,stage==='import'?createEstimateDisplay():createVideoEstimateDisplay());

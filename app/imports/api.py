@@ -18,6 +18,12 @@ def pause_videos():
     (DATA/'VIDEO-PAUSE').touch()
     return {'message':'Video pause requested at the next file boundary.'}
 
+@router.get('/api/import/{job_id}/retained-originals')
+def retained_originals(job_id:int):
+    from ..video.conversion_review import retained_originals as listed
+    with connection() as db:
+        return {'ids':listed(db,job_id,load_config())}
+
 @router.post('/api/import/{job_id}/playback-review/{media_id}/{action}')
 def playback_review(job_id:int,media_id:int,action:str,request:Request):
     from ..video.conversion_review import finish

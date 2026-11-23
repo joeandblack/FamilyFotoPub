@@ -12,6 +12,14 @@ test('playback review uses durable validation evidence, not all conversion warni
  assert.equal(needsPlaybackReview({kind:'video',video_metadata:{conversion_validation:{playback:'decoded'}}}),false);
 });
 
+test('AVI, fully validated and older conversions also offer their originals for deletion',()=>{
+ assert.equal(needsPlaybackReview({...video(1),original_relative_path:'1.avi',video_metadata:{}}),true);
+ assert.equal(needsPlaybackReview({...video(1),original_relative_path:'1.FLV',video_metadata:{conversion_validation:{playback:'decoded'}}}),true);
+ assert.equal(needsPlaybackReview({...video(1),original_relative_path:'1.m2ts'}),false);
+ assert.equal(needsPlaybackReview({...video(1),conversion_state:'published'}),false);
+ assert.equal(needsPlaybackReview({...video(1),conversion_state:'duplicate'}),false);
+});
+
 test('review loads only the selected import, paginates 100 thumbnails and opens the actual video',async()=>{
  const old=globalThis.document;
  const make=tag=>({tag,children:[],style:{},classList:{},after(){},append(...nodes){this.children.push(...nodes);},replaceChildren(...nodes){this.children=nodes;},setAttribute(){},addEventListener(){},showModal(){this.open=true;},close(){this.open=false;}});
@@ -20,6 +28,7 @@ test('review loads only the selected import, paginates 100 thumbnails and opens 
   const requests=[],opened=[],writes=[];
   const review=setupConversionReview({api:async (url,options)=>{
    if(options?.method==='POST'){writes.push(url);return {ok:true};}
+   if(url==='/api/import/7/retained-originals')return {ids:[...Array.from({length:101},(_,i)=>i+1),900]};
    const query=new URL(url,'http://localhost').searchParams;requests.push(query);
    return query.get('page')==='1'?{pages:2,items:[...Array.from({length:100},(_,i)=>video(i+1)),{id:900,kind:'video'}]}:{pages:2,items:[video(101)]};
   },openViewer:(...args)=>opened.push(args)});
