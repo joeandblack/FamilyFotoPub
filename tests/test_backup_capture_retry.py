@@ -832,6 +832,7 @@ def new_image(path, name):
 
 
 @pytest.mark.skipif(sys.platform != 'darwin', reason='Detaches and reattaches real APFS disk images')
+@pytest.mark.ci_apfs
 def test_real_apfs_remount_resumes_and_a_replacement_disk_is_refused(world):
     media_image, backup_image, filler_image, other_image = (
         world.tmp / f'{name}.dmg' for name in ('media', 'backup', 'filler', 'other'))

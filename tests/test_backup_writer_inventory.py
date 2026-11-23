@@ -55,6 +55,7 @@ ENTRYPOINTS = {
 # Standalone historical validation tools are deliberately not admitted to an
 # offline backup session. They must be stopped with other external DB clients.
 SCRIPTS = {
+    'ci_tests.py': 'CI-only source inspection and pytest selection; writes only requested test reports and GitHub job outputs',
     'audit_pending_work.py': 'read-only direct database audit',
     'backup_validation_snapshot.py': 'historical offline validation coordinator',
     'calibrate_native_live.py': 'calibrate/load_config',

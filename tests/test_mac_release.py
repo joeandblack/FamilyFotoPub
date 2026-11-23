@@ -82,6 +82,7 @@ def test_relocated_ffmpeg_runs_from_the_payload_only(tmp_path):
 
 
 @pytest.mark.skipif(not has_formula('postgresql@17'), reason="needs Apple Silicon with Homebrew's postgresql@17")
+@pytest.mark.ci_database
 def test_relocated_postgres_initializes_and_serves_from_the_payload_only(tmp_path):
     payload = tmp_path / 'postgres.zip'
     build_payloads.build_postgres(payload)
