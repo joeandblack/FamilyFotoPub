@@ -55,6 +55,7 @@ def test_named_layout_and_port_checks(form, monkeypatch):
 
 @pytest.mark.skipif(checks.sys.platform != 'darwin', reason='SwiftUI needs macOS')
 @pytest.mark.real_scrypt
+@pytest.mark.ci_swift
 def test_native_window_model_and_restore_contract(tmp_path):
     import subprocess
     binary = tmp_path / 'setup-window-test'
