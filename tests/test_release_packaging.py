@@ -59,9 +59,9 @@ def test_manifest_excludes_private_and_test_files():
 def test_test_dependencies_are_not_runtime():
     config = tomllib.loads((ROOT / 'pyproject.toml').read_text())
     assert not any(line.startswith('pytest') for line in config['project']['dependencies'])
-    assert config['project']['optional-dependencies']['test'] == ['pytest==8.3.5']
+    assert config['project']['optional-dependencies']['test'] == ['pytest==9.0.3']
     assert config['project']['optional-dependencies']['lint'] == ['ruff==0.8.6']
-    assert (ROOT / 'requirements-dev.txt').read_text().splitlines() == ['-r requirements.txt', 'pytest==8.3.5', 'ruff==0.8.6']
+    assert (ROOT / 'requirements-dev.txt').read_text().splitlines() == ['-r requirements.txt', 'pytest==9.0.3', 'ruff==0.8.6']
 
 
 def test_release_contains_fastbackup_runtime_without_tests(tmp_path):

@@ -142,7 +142,7 @@ def test_install_never_passes_the_password_as_an_argument():
 
 def test_the_temporary_runtime_is_pinned_and_registers_nothing():
     source = (WINDOWS / 'setup-password.ps1').read_text()
-    for pinned in ('cryptography==44.0.3', 'cffi==2.1.1', '--require-hashes', '--no-index', '--no-cache-dir', '--isolated',
+    for pinned in ('cryptography==50.0.0', 'cffi==2.1.1', '--require-hashes', '--no-index', '--no-cache-dir', '--isolated',
                    '--only-binary', 'Expand-PrivatePythonRuntime', '$PythonNuGetSha256'):
         assert pinned in source, pinned
     assert 'python-3.12' not in source.lower() and '.exe' not in source.replace('python.exe', '')  # No python.org installer.

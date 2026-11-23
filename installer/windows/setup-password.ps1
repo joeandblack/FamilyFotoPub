@@ -23,9 +23,9 @@ $ErrorActionPreference = 'Stop'
 
 $PasswordCheckPrefix = 'password-check-'
 $PasswordCheckWheels = @(
-    @{ File = 'cryptography-44.0.3-cp39-abi3-win_amd64.whl'; Requirement = 'cryptography==44.0.3'
-       Url = 'https://files.pythonhosted.org/packages/c9/ad/51f212198681ea7b0deaaf8846ee10af99fba4e894f67b353524eab2bbe5/cryptography-44.0.3-cp39-abi3-win_amd64.whl'
-       Sha256 = '5D186F32E52E66994DCE4F766884BCB9C68B8DA62D61D9D215BFE5FB56D21334' },
+    @{ File = 'cryptography-50.0.0-cp311-abi3-win_amd64.whl'; Requirement = 'cryptography==50.0.0'
+       Url = 'https://files.pythonhosted.org/packages/32/2e/c9db68a0c4bfa28e310707527c0ee3a2bd254104d2e02e68f368e197aa4c/cryptography-50.0.0-cp311-abi3-win_amd64.whl'
+       Sha256 = 'BD1C592E4D5974F0D08D4888E432157ADBA757C66DA0246918E43677FAFA2D30' },
     @{ File = 'cffi-2.1.1-cp312-cp312-win_amd64.whl'; Requirement = 'cffi==2.1.1'
        Url = 'https://files.pythonhosted.org/packages/d9/79/615cc094e2fb508cade7de88d3b4f6c4ec2bab695c97bce9153dc65aadf5/cffi-2.1.1-cp312-cp312-win_amd64.whl'
        Sha256 = 'F53E442B08449D42821FA4A4FBA000095AF9F62742A500F978A9F557EC44339A' }
@@ -101,6 +101,7 @@ function Invoke-SetupPasswordCheck([string]$Root, [string]$Runtime, [string]$Bac
     # Tests only: a stand-in helper (program, then its arguments), for one that never exits.
     if ($Test.Count -ge 1) { $info.FileName = $Test[0]; $info.Arguments = ($Test | Select-Object -Skip 1) -join ' ' }
     $info.UseShellExecute = $false; $info.CreateNoWindow = $true
+    $info.StandardInputEncoding = New-Object Text.UTF8Encoding $false
     $info.RedirectStandardInput = $true; $info.RedirectStandardOutput = $true; $info.RedirectStandardError = $true
     $process = [Diagnostics.Process]::Start($info)
     try {
@@ -162,6 +163,7 @@ function Invoke-SetupPasswordChild([string]$Program, [string[]]$Arguments, [byte
     $info = New-Object Diagnostics.ProcessStartInfo $Program
     $info.Arguments = (@($Arguments | ForEach-Object { ConvertTo-SetupArgument $_ }) -join ' ')
     $info.UseShellExecute = $false
+    $info.StandardInputEncoding = New-Object Text.UTF8Encoding $false
     $info.RedirectStandardInput = $true
     $info.WorkingDirectory = (Get-Location).Path
     $process = [Diagnostics.Process]::Start($info)

@@ -108,9 +108,9 @@ Stack Builder or compiler toolchain is required to run the packaged app.
 ### Direct Python Libraries
 
 Core manifest: FastAPI 0.115.12, Uvicorn 0.34.2, psycopg[binary] 3.2.9,
-psycopg-pool 3.3.3, Pillow 11.2.1, pillow-heif 1.8.1, HTTPX 0.28.1,
-cryptography 44.0.3 (the private HTTPS certificate authority).
-pytest 8.3.5 is in `requirements-dev.txt` for tests, not the production manifest.
+psycopg-pool 3.3.3, Pillow 13.0.0, pillow-heif 1.8.1, HTTPX 0.28.1,
+cryptography 50.0.0 (the private HTTPS certificate authority).
+pytest 9.0.3 is in `requirements-dev.txt` for tests, not the production manifest.
 People adds NumPy/SciPy above. pip resolves supporting dependencies (for example
 Starlette, Pydantic and AnyIO); these do not need separate user installation.
 A complete transitive lock/SBOM remains a release-packaging task.

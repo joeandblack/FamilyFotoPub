@@ -69,6 +69,7 @@ public class FamilyFotoSetupRun {
         info.UseShellExecute = false;
         info.CreateNoWindow = true;
         info.RedirectStandardInput = true;
+        info.StandardInputEncoding = new UTF8Encoding(false);
         info.RedirectStandardOutput = true;
         info.RedirectStandardError = true;
         info.StandardOutputEncoding = Encoding.UTF8;

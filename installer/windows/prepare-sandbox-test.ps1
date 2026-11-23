@@ -13,7 +13,10 @@ $buildArgs = @((Join-Path $root 'installer\release.py'), 'build', '--output', (J
 if ($AllowDirty) { $buildArgs += '--allow-dirty' }
 $archive = & $Python @buildArgs
 if ($LASTEXITCODE -ne 0) { throw 'Release packaging failed; Sandbox was not prepared' }
-Expand-Archive -LiteralPath $archive -DestinationPath (Join-Path $stage 'input')
+# Use the same Python runtime as the builder. This avoids host PowerShell archive
+# module/.NET overload differences and fails before declaring the package ready.
+& $Python -m zipfile -e $archive (Join-Path $stage 'input')
+if ($LASTEXITCODE -ne 0) { throw 'Release extraction failed; Sandbox was not prepared' }
 # Only this sanitized input directory is mapped, read-only. Install into guest C:.
 $escaped = [Security.SecurityElement]::Escape((Join-Path $stage 'input'))
 $outputMapping = ''
