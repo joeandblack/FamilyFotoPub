@@ -1,38 +1,56 @@
 Restore this FamilyFoto backup on a Mac
 
+This backup can be restored on a Mac whether it was made on a Mac or on Windows. Restoring
+installs FamilyFoto and puts this library into it in one go, with FamilyFoto Setup.
+
 Before you begin
-- Use an Apple Silicon Mac with Command Line Tools, Homebrew and Homebrew Python 3.12 installed.
-- The launcher downloads the release/0.1 branch of the public FamilyFotoPub repository from GitHub over HTTPS. This Mac needs internet access; no GitHub account is needed.
-- Know the FamilyFoto administrator password from when this backup was made. A later password change does not change an existing backup.
-- Finish the backup and stop FamilyFoto on the old computer before switching to the restored library.
+- Use an Apple Silicon Mac with macOS 27 or newer. Nothing else needs to be installed first.
+- Know the FamilyFoto administrator password from when this backup was made. A later password
+  change does not change an existing backup.
+- Finish the backup and stop FamilyFoto on the old computer before switching to the restored
+  library.
 
-If this folder contains RELEASE.txt, this backup was made by a released FamilyFoto installer:
-follow RELEASE.txt to install that release with its own setup app instead of the steps below.
+Get FamilyFoto Setup
+- If this folder contains RELEASE.txt, it names the exact release to use: follow it.
+- Otherwise download FamilyFotoSetup.dmg from the official releases page,
+    https://github.com/joeandblack/FamilyFotoPub/releases
+  and check its SHA-256 against the checksum published on that release page:
+    shasum -a 256 ~/Downloads/FamilyFotoSetup.dmg
+  Do not open it if they differ.
+- Open the disk image and drag FamilyFoto Setup to Applications. The app is not notarized by
+  Apple: open it once, then approve it in System Settings, Privacy & Security, Open Anyway.
+- Do not run programs merely because they are on this disk.
 
-Launch setup
-1. Open Terminal. Create and enter an empty installation folder first, for example:
-     mkdir -p ~/FamilyFoto-Restore
-     cd ~/FamilyFoto-Restore
-   If that folder already contains files, choose a different empty folder. Then type bash followed by a space.
-2. Drag restore-familyfoto-mac.command from this folder into Terminal and press Return.
-3. Enter a fresh installation folder on the Mac. Press Return to use the current Terminal directory (which must be empty).
-4. The launcher downloads FamilyFoto, prepares temporary password-checking dependencies, then compiles and opens the setup window. The first window launch can take a minute.
+In FamilyFoto Setup
+1. Read and accept the terms.
+2. Choose Restore from a backup, then choose this backup folder: the folder that holds catalog
+   and this restore-on-mac folder.
+3. Choose an empty installation folder (not inside the backup), and whether to include People.
+   Without People, saved people stay viewable.
+4. Click Install and Restore. Setup downloads and checks FamilyFoto, then opens its setup window.
 
 In the setup window
-1. The launcher preselects the backup folder containing this restore-on-mac folder, catalog, library and media-copy. Check it, or use Browse to choose another backup. If the launcher was moved out of the backup, choose the backup manually.
-2. Enter the administrator password from when this backup was made, then click Check password. Errors appear in red. The password is not saved. Older recovery.key backups need their original release; this version accepts password backups only.
-3. Choose how to use the media.
-   Copy keeps the backup and needs room for another copy of the photos and videos. Setup defaults to FFLibrary beside the backup folder; use Browse to choose another folder.
-   In place uses the backup disk as the library disk. Setup defaults to FFLibrary beside the backup folder. To use a different location, click Browse and choose a parent folder on that same disk, outside the backup folder. Setup creates FFLibrary inside the selected parent and moves the media with one folder rename. This consumes the backup.
-4. Choose whether to install People and accept its model terms if you enable it. Saved people remain viewable when People is skipped.
-5. Check the selected answers. The old-computer-stopped checkbox is selected by default. The unprotected-disk acceptance checkbox, when shown, is also selected by default. Clear either if it does not reflect your decision.
-6. Click Start and keep the window open and disks connected until setup finishes.
-7. Click Open FamilyFoto and sign in with the old library's accounts. If the browser warns about the certificate, use Trust this computer's certificate and approve the macOS prompt.
+1. Enter the administrator password from when this backup was made, then click Check password.
+   The password is not saved.
+2. Choose how to use the photos and videos.
+   Copy keeps the backup and needs room for another copy of the photos and videos. Setup
+   defaults to FFLibrary beside the backup folder; use Browse to choose another folder.
+   In place uses the backup disk as the library disk: setup moves the media into FFLibrary
+   beside the backup folder with one folder rename, in minutes whatever the size. This uses up
+   the backup. To use another folder, choose a parent folder on the same disk, outside the
+   backup folder.
+3. If People is included, accept its model terms.
+4. Check the answers, including that the old computer's FamilyFoto is stopped, then click
+   Start. Keep the window open and the disks connected until setup finishes.
+5. Click Open FamilyFoto and sign in with the old library's accounts. If the browser warns
+   about the certificate, use Trust this computer's certificate and approve the macOS prompt.
 
 If setup stops
 Keep the installation folder. In Terminal, change to that folder and run:
   bash installer/macos/install.sh restore
-This carries on using the recorded choices. Enter the password again if requested. After thumbnails finish, setup can continue without the backup disk or password. Interrupted Core or People installation may need inspection.
+This carries on with the recorded choices. Enter the password again if asked. If it says the
+downloaded installer files are gone, open FamilyFoto Setup again and choose the same
+installation folder.
 
 After restoring
 Check your photos and albums, then make and verify a new backup.

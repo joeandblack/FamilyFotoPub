@@ -2,9 +2,10 @@
 //
 // It needs no Python, Homebrew or Command Line Tools. It checks the Mac, downloads the pinned
 // bootstrap Python and installer engine (verifying their SHA-256 from the embedded
-// bootstrap.json), shows the combined agreement before anything else is downloaded, then runs
-// installer/macos/online_setup.py and shows its progress. That hands over to the release's
-// prebuilt setup window. It runs as the signed-in user; no step asks for administrator rights.
+// bootstrap.json), shows the combined agreement before anything else is downloaded, asks for a
+// new library or a restore from a backup, then runs installer/macos/online_setup.py and shows
+// its progress. That hands over to the release's prebuilt setup window, already set for the
+// choice made here. It runs as the signed-in user; no step asks for administrator rights.
 import AppKit
 import CryptoKit
 import Foundation
@@ -208,6 +209,22 @@ enum Bootstrap {
         }
     }
 
+    /// Why a folder cannot be restored from, or nil. online_setup.py checks it again.
+    static func backupProblem(_ backup: String, installFolder: String) -> String? {
+        guard !backup.isEmpty else { return "Choose the backup folder." }
+        let fm = FileManager.default
+        var isFolder: ObjCBool = false
+        let path = URL(fileURLWithPath: backup).standardizedFileURL.path
+        guard fm.fileExists(atPath: path + "/catalog", isDirectory: &isFolder), isFolder.boolValue else {
+            return "This is not a FamilyFoto backup folder: choose the folder that holds catalog and restore-on-mac."
+        }
+        let target = URL(fileURLWithPath: installFolder).standardizedFileURL.path
+        if target == path || target.hasPrefix(path + "/") || path.hasPrefix(target + "/") {
+            return "Choose an installation folder outside the backup folder."
+        }
+        return nil
+    }
+
     struct Agreement { let text: String; let digest: String }
 
     /// The engine's pinned manifest names the agreement; both are checked before it is shown.
@@ -297,6 +314,8 @@ final class Launcher: ObservableObject {
     @Published var fraction: Double?
     @Published var accepted = false
     @Published var people = false
+    @Published var restore = false
+    @Published var backup = ""
     @Published var folder = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("FamilyFoto").path
     @Published var log = ""
     var descriptor: Descriptor?
@@ -305,6 +324,8 @@ final class Launcher: ObservableObject {
     var notices: String { descriptor?.bootstrap_notices ?? "" }
     private var process: Process?
     private let resources = Bundle.main.resourceURL!
+
+    var backupProblem: String? { restore ? Bootstrap.backupProblem(backup, installFolder: folder) : nil }
 
     var bundle: URL? { descriptor?.mode == "offline" ? resources.appendingPathComponent("bundle") : nil }
     var attempt: URL? { prepared.map { $0.base.appendingPathComponent("attempt-\(descriptor!.mode)") } }
@@ -325,8 +346,12 @@ final class Launcher: ObservableObject {
         guard let p = prepared, let attempt, accepted else { return }
         do {
             try FileManager.default.createDirectory(at: attempt, withIntermediateDirectories: true)
-            let choices: [String: Any] = ["root": URL(fileURLWithPath: folder).standardizedFileURL.path,
+            var choices: [String: Any] = ["root": URL(fileURLWithPath: folder).standardizedFileURL.path,
                                           "people": people, "agreement_digest": p.agreement.digest]
+            if restore {
+                guard backupProblem == nil else { return }
+                choices["backup"] = URL(fileURLWithPath: backup).standardizedFileURL.path
+            }
             let choicesURL = attempt.appendingPathComponent("choices.json")
             try JSONSerialization.data(withJSONObject: choices).write(to: choicesURL, options: .atomic)
             let run = Process()
@@ -378,6 +403,15 @@ final class Launcher: ObservableObject {
 
     func fail(_ message: String) { phase = .failed; status = message; fraction = nil }
 
+    func chooseBackup() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.prompt = "Choose"
+        panel.message = "Choose the FamilyFoto backup folder: the folder that holds catalog and restore-on-mac."
+        if panel.runModal() == .OK, let url = panel.url { backup = url.path }
+    }
+
     func chooseFolder() {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -417,23 +451,42 @@ struct LauncherView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("FamilyFoto Terms and Third-Party Notices").font(.headline)
             ScrollView { Text(launcher.agreementText).font(.callout).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) }
-                .frame(height: 220).padding(8).background(Color(nsColor: .textBackgroundColor)).border(Color.secondary.opacity(0.3))
+                .frame(height: 180).padding(8).background(Color(nsColor: .textBackgroundColor)).border(Color.secondary.opacity(0.3))
             Toggle("I accept the FamilyFoto terms and the applicable third-party terms listed here for the components I selected.",
                    isOn: $launcher.accepted)
+            Picker("Library", selection: $launcher.restore) {
+                Text("New library").tag(false); Text("Restore from a backup").tag(true)
+            }.pickerStyle(.segmented)
+            if launcher.restore {
+                HStack {
+                    Text("Backup folder")
+                    TextField("", text: $launcher.backup)
+                    Button("Browse…") { launcher.chooseBackup() }
+                }
+                if let problem = launcher.backupProblem, !launcher.backup.isEmpty {
+                    Text(problem).font(.callout).foregroundStyle(.red)
+                } else {
+                    Text("Also for a library moved from another computer, Mac or Windows. You choose how to restore the photos and videos, and enter the backup's password, in the next window.")
+                        .font(.callout).foregroundStyle(.secondary)
+                }
+            }
             HStack {
                 Text("Installation folder")
                 TextField("", text: $launcher.folder)
                 Button("Browse…") { launcher.chooseFolder() }
             }
             Toggle("Include People (face recognition; a larger download)", isOn: $launcher.people)
+            if launcher.restore && !launcher.people {
+                Text("Without People, the backup's saved people stay viewable, but new photos are not scanned.").font(.caption).foregroundStyle(.secondary)
+            }
             Text(launcher.notices).font(.caption).foregroundStyle(.secondary)
             Spacer()
             HStack {
                 Spacer()
                 Button("Quit") { NSApp.terminate(nil) }
-                Button("Install") { launcher.install() }
+                Button(launcher.restore ? "Install and Restore" : "Install") { launcher.install() }
                     .keyboardShortcut(.defaultAction)
-                    .disabled(!launcher.accepted || launcher.folder.isEmpty)
+                    .disabled(!launcher.accepted || launcher.folder.isEmpty || launcher.backupProblem != nil)
             }
         }
     }

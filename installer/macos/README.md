@@ -82,8 +82,9 @@ from a release instead of Homebrew: `installer/macos/shared_adapter.py` unpacks 
 release's bundled Python 3.12, PostgreSQL 17 and FFmpeg into `bundled/` and runs
 `install.sh` with `FAMILYFOTO_PAYLOAD_RECEIPT` set, so every dependency comes from
 verified local files. `FamilyFoto Setup.app` (`installer/macos/launcher/`) is the
-download that drives it: agreement, installation folder and People choice first, then
-downloads with progress, then the release's prebuilt setup window. The steps below, using
+download that drives it: agreement, **New library** or **Restore from a backup** (with the
+backup folder), installation folder and People choice first, then downloads with progress,
+then the release's prebuilt setup window, already set for that choice. The steps below, using
 Homebrew, are unchanged. Released payloads are not published yet; the release build and
 clean-Mac checklist are in [qualify/QUALIFICATION.md](qualify/QUALIFICATION.md).
 
@@ -97,12 +98,17 @@ library into this installation in one go, ending with FamilyFoto running. Choose
 bash installer/macos/install.sh restore
 ```
 
-New plain-media backups include a `restore-on-mac` folder with instructions and
-`restore-familyfoto-mac.command`. Run the launcher with Bash from Terminal.
-It asks for a fresh installation folder (suggesting `~/FamilyFoto-Restore` when
-launched from a backup), downloads the `release/0.1` branch of the public repository over HTTPS, and opens
-the restore window. The Mac needs internet access and the prerequisites above.
-The terminal reports while the setup window is being compiled.
+The usual way is **FamilyFoto Setup.app**: choose **Restore from a backup** and the backup
+folder on its first screen, beside the installation folder and People. It checks the folder
+is a FamilyFoto backup, outside the installation folder, before downloading anything, then
+opens the setup window as a restore with that backup filled in. Nothing needs to be installed
+first, and it restores backups made on a Mac or on Windows.
+
+New plain-media backups include a `restore-on-mac` folder with `README.txt`, which says how to
+get FamilyFoto Setup and restore, and, when the backup's installation came from a release,
+`RELEASE.txt` naming the exact `FamilyFotoSetup.dmg` (see `installer/common/README.md`). Earlier
+backups also carried `restore-familyfoto-mac.command`, a Terminal launcher that needed Homebrew
+and Git; new backups no longer include it, and a retried backup removes it.
 
 Setup defaults the library location to `FFLibrary` beside the backup folder for both
 **Copy** and **In place**. For **Copy**, Browse can choose any folder with room for a

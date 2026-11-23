@@ -161,6 +161,15 @@ struct WindowTests {
         assert(Setup.downloadedPeople(["FAMILYFOTO_PAYLOAD_RECEIPT": receipt.path]))
         assert(!Setup.downloadedPeople(["FAMILYFOTO_PAYLOAD_RECEIPT": receipt.path + ".missing"]))
         try? FileManager.default.removeItem(at: receipt)
+        // Opened by FamilyFoto Setup.app: its choice stands and People is on if it was downloaded.
+        let fromApp = Setup(root: FileManager.default.temporaryDirectory, restore: true,
+                            initialBackup: "/Volumes/Backup Disk/backup-one", peopleAvailable: true, modeChosen: true)
+        assert(fromApp.modeChosen && fromApp.a.restore && fromApp.a.people && !fromApp.a.terms)
+        assert(fromApp.a.backup == "/Volumes/Backup Disk/backup-one")
+        let fromAppCore = Setup(root: FileManager.default.temporaryDirectory, restore: false, peopleAvailable: false, modeChosen: true)
+        assert(!fromAppCore.a.restore && !fromAppCore.a.people)
+        let fromTerminal = Setup(root: FileManager.default.temporaryDirectory, restore: false, peopleAvailable: true, modeChosen: false)
+        assert(!fromTerminal.modeChosen && !fromTerminal.a.people)
         let corePack = Setup(root: FileManager.default.temporaryDirectory, restore: false, peopleAvailable: false)
         corePack.a.people = true
         assert(corePack.validationIssues.contains { $0.contains("People was not downloaded") })

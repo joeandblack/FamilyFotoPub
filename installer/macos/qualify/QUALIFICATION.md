@@ -87,8 +87,8 @@ the automatic checks; everything marked **(manual)** needs a person at the VM.
 | 5 | Agreement and folder refusals | Quit at the agreement; choose a non-empty folder; choose a folder on a nearly full disk. | Nothing downloaded or created each time. |
 | 6 | Interrupted download | Cancel during download, open the app again, Install. | Verified downloads reused; setup completes. |
 | 7 | Resume after reboot | During restore, restart the VM. **(manual)** In Terminal: `cd ~/FamilyFoto && bash installer/macos/install.sh restore`. | Resumes without Homebrew; `installed` all PASS. |
-| 8 | Restore a Mac backup | Make a backup in scenario 3 to a disk image; restore it into a fresh VM with the launcher. | Library, accounts and People match; `restore-on-mac/RELEASE.txt` names the release DMG. |
-| 9 | Restore a Windows backup | Restore a backup made by a Windows release installation. | As 8; People catalog matches (same `buffalo_l`). |
+| 8 | Restore a Mac backup | Make a backup in scenario 3 to a disk image; in a fresh VM open FamilyFoto Setup, choose **Restore from a backup** and that backup, Install and Restore. | Library, accounts and People match; `restore-on-mac/RELEASE.txt` names the release DMG. |
+| 9 | Restore a Windows backup | As 8, with a backup made by a Windows release installation. | As 8; People catalog matches (same `buffalo_l`). |
 | 10 | Offline | Disconnect networking; `bash qualify.sh offline` all PASS; run the offline DMG through scenarios 3 and 4. | No network request needed; `installed` all PASS. |
 | 11 | People not downloaded | Install without People, then try Install People in the setup window. | The switch is disabled with "People was not downloaded"; nothing breaks. |
 | 12 | Backup from a release install | In scenario 3, make a Standard and a Fast backup. | Both finish; each has `restore-on-mac/` with `RELEASE.txt`. |

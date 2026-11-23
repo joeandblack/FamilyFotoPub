@@ -31,6 +31,11 @@ def stage_application(manifest, receipt, destination, platform='windows-x64'):
         release_id = manifest.document['release_id']
         url = validate_release_link(release_id, manifest.document['setup_url'], platform)
         binding[HANDOVER_KEYS[platform]] = {'release_id': release_id, 'setup_url': url}
+    if manifest.document.get('mac_handover'):
+        # Backups from a Windows installation tell the Mac which setup app restores them.
+        mac = manifest.document['mac_handover']
+        binding['mac_handover'] = {'release_id': mac['release_id'],
+                                   'setup_url': validate_release_link(mac['release_id'], mac['setup_url'], 'macos-arm64')}
     if destination.exists():
         if not marker.is_file() or json.loads(marker.read_text(encoding='utf-8')) != binding:
             raise ValueError('Existing application location is not owned by this release attempt')

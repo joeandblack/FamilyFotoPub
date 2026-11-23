@@ -203,7 +203,7 @@ def test_new_backups_name_the_mac_release(tmp_path):
     text = (backup / 'restore-on-mac/RELEASE.txt').read_text()
     assert DMG in text and 'install.sh restore' in text and 'Do not run programs' in text
     assert 'shasum -a 256' in text and 'Open Anyway' in text
-    assert (backup / 'restore-on-mac/restore-familyfoto-mac.command').is_file()
+    assert sorted(p.name for p in (backup / 'restore-on-mac').iterdir()) == ['README.txt', 'RELEASE.txt']
     assert not (backup / 'restore-on-windows').exists()  # a Mac release names no Windows installer
 
 
@@ -216,6 +216,29 @@ def test_bad_release_record_never_fails_a_backup_and_clears_stale_link(tmp_path,
     handover.write_handover(backup, receipt_file(tmp_path, content))
     assert not (backup / 'restore-on-mac/RELEASE.txt').exists()
     assert (backup / 'restore-on-mac/README.txt').is_file()
+
+
+def test_backups_drop_the_retired_terminal_launcher(tmp_path):
+    backup = tmp_path / 'backup'
+    old = backup / 'restore-on-mac/restore-familyfoto-mac.command'
+    old.parent.mkdir(parents=True)
+    old.write_text('#!/bin/bash\n')  # left by an earlier attempt of this backup
+    handover.write_handover(backup, tmp_path / 'absent.json')
+    assert not old.exists()
+    text = (backup / 'restore-on-mac/README.txt').read_text()
+    assert 'FamilyFoto Setup' in text and 'Restore from a backup' in text
+    assert 'Homebrew' not in text and 'git clone' not in text
+
+
+def test_a_linked_retired_launcher_is_refused(tmp_path):
+    backup = tmp_path / 'backup'
+    old = backup / 'restore-on-mac/restore-familyfoto-mac.command'
+    old.parent.mkdir(parents=True)
+    (tmp_path / 'elsewhere').write_text('not ours')
+    old.symlink_to(tmp_path / 'elsewhere')
+    with pytest.raises(ValueError, match='Linked or unexpected'):
+        handover.write_handover(backup, tmp_path / 'absent.json')
+    assert (tmp_path / 'elsewhere').read_text() == 'not ours'
 
 
 def test_installs_without_a_release_write_no_release_file(tmp_path):
