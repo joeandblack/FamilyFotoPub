@@ -20,7 +20,7 @@ from app.backup import handover
 from tests.test_shared_installer import component, digest, document
 
 ROOT = Path(__file__).resolve().parents[1]
-DMG = 'https://github.com/joeandblack/FamilyFoto/releases/download/test-1/FamilyFotoSetup.dmg'
+DMG = 'https://github.com/joeandblack/FamilyFotoPub/releases/download/test-1/FamilyFotoSetup.dmg'
 MAC = sys.platform == 'darwin' and platform.machine() == 'arm64'
 
 

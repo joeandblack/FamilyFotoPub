@@ -1,8 +1,8 @@
 <#
-Run in an administrator PowerShell window. Downloads beta-release-2 into a fresh
+Run in an administrator PowerShell window. Downloads release/0.1 into a fresh
 installation folder, then opens Windows Restore setup. No restore runs until
-the user submits the setup window. Git is required; private repositories also
-require GitHub CLI (gh) signed in under this Windows account.
+the user submits the setup window. Git is required. The public repository
+downloads over anonymous HTTPS; no GitHub account is needed.
 #>
 [CmdletBinding()]
 param([string]$InstallDirectory)
@@ -78,13 +78,13 @@ $stage = Join-Path ([IO.Path]::GetTempPath()) ('familyfoto-download-' + [guid]::
 $source = Join-Path $stage 'source'
 New-Item -ItemType Directory -Path $stage | Out-Null
 try {
-    Write-Host 'Downloading FamilyFoto beta-release-2 from GitHub...'
+    Write-Host 'Downloading FamilyFoto release/0.1 from GitHub...'
     $oldPrompt = $env:GIT_TERMINAL_PROMPT
     try {
         $env:GIT_TERMINAL_PROMPT = '0'
-        & $git @gitOptions clone --depth 1 --single-branch --branch beta-release-2 https://github.com/joeandblack/FamilyFoto.git $source
+        & $git @gitOptions clone --depth 1 --single-branch --branch release/0.1 https://github.com/joeandblack/FamilyFotoPub.git $source
         if ($LASTEXITCODE -ne 0) {
-            throw 'Download failed. Check the network. For this private repository, install GitHub CLI and run gh auth login --hostname github.com --git-protocol https in this Windows account, then retry. SSH keys are not needed.'
+            throw 'Download failed. Check the network connection, then retry.'
         }
     } finally {
         $env:GIT_TERMINAL_PROMPT = $oldPrompt

@@ -6,7 +6,7 @@ from app.backup import windows_handover
 from installer.common.manifest import validate_release_link
 
 
-URL = 'https://github.com/joeandblack/FamilyFoto/releases/download/test-1/FamilyFotoSetup.exe'
+URL = 'https://github.com/joeandblack/FamilyFotoPub/releases/download/test-1/FamilyFotoSetup.exe'
 
 
 def receipt(path, url=URL):
@@ -31,7 +31,7 @@ def test_release_pinned_instructions_and_retry(tmp_path):
 
 
 @pytest.mark.parametrize('url', ['https://evil.example/setup.exe',
-                                'https://github.com/joeandblack/FamilyFoto/releases/latest/download/FamilyFotoSetup.exe',
+                                'https://github.com/joeandblack/FamilyFotoPub/releases/latest/download/FamilyFotoSetup.exe',
                                 URL + '?redirect=1', URL.replace('test-1', 'other')])
 def test_reject_unpinned_or_foreign_url_before_writes(tmp_path, url, caplog):
     metadata = receipt(tmp_path / 'receipt.json', url)
