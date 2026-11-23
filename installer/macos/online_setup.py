@@ -52,10 +52,35 @@ def check_backup(value, root):
     backup = Path(os.path.abspath(value))
     if not backup.is_dir() or not (backup / 'catalog').is_dir():
         raise ValueError(f'{backup} is not a FamilyFoto backup folder: it has no catalog. Nothing was downloaded.')
-    target = Path(os.path.abspath(root))
-    if target == backup or target.is_relative_to(backup) or backup.is_relative_to(target):
+    if overlaps(backup, Path(os.path.abspath(root))):
         raise ValueError('Choose an installation folder outside the backup folder. Nothing was downloaded.')
     return backup
+
+
+def existing_chain(path):
+    """Stats of the folder itself if it exists, then of each existing parent."""
+    chain = []
+    for folder in (path, *path.parents):
+        try:
+            chain.append(folder.stat())
+        except OSError:
+            continue
+    return chain
+
+
+def overlaps(backup, target):
+    """True if either folder is, or is inside, the other, compared by identity on disk.
+
+    Spellings are not enough: a link, a second spelling on a case-insensitive disk or a mount
+    can name the same folder. So both paths are resolved to where they really are, and every
+    existing folder up each one is compared by device and inode with the other's end."""
+    backup, target = Path(os.path.realpath(backup)), Path(os.path.realpath(target))
+    backup_stat = backup.stat()
+    chain = existing_chain(target)
+    if any(os.path.samestat(folder, backup_stat) for folder in chain):
+        return True  # the installation folder is the backup or inside it
+    # The backup inside an existing installation folder (the first link of its chain is itself).
+    return target.exists() and any(os.path.samestat(folder, chain[0]) for folder in existing_chain(backup))
 
 
 def admit(manifest, root, features, os_version):

@@ -1,4 +1,4 @@
-"""Write the Mac restore instructions into a plain-media backup."""
+"""Write the Mac restore instructions, and for source installations the launcher, into a backup."""
 from pathlib import Path
 import logging
 import os
@@ -12,8 +12,9 @@ from .windows_handover import RECEIPT, read_release, write_windows_handover
 FOLDER = 'restore-on-mac'
 SOURCE = Path(__file__).resolve().parents[2] / 'installer/macos/handover'
 FILES = ('README.txt',)
-# Earlier backups carried a Terminal launcher that needed Homebrew; FamilyFoto Setup replaced it.
-RETIRED = ('restore-familyfoto-mac.command',)
+# The Terminal launcher (Homebrew, Git) for installations made from source, which have no
+# release to name. A release installation's backups use FamilyFoto Setup (RELEASE.txt) instead.
+LAUNCHER = 'restore-familyfoto-mac.command'
 # Written only when this installation came from a shared-installer release.
 RELEASE = 'RELEASE.txt'
 
@@ -90,10 +91,11 @@ def write_handover(backup, receipt_path=None):
     directory_identity(folder)
     for name in FILES:
         _publish(folder, name, (SOURCE / name).read_bytes(), 0o600)
-    for name in RETIRED:
-        # A retried backup must not keep the old launcher beside the new instructions.
-        _regular_or_absent(folder / name)
-        (folder / name).unlink(missing_ok=True)
-    write_release(folder, receipt_path)
+    if write_release(folder, receipt_path):
+        # A retry must not keep the source launcher beside the release's instructions.
+        _regular_or_absent(folder / LAUNCHER)
+        (folder / LAUNCHER).unlink(missing_ok=True)
+    else:
+        _publish(folder, LAUNCHER, (SOURCE / LAUNCHER).read_bytes(), 0o700)
     sync_directory(folder)
     write_windows_handover(backup, receipt_path)

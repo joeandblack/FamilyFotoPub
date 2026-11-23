@@ -218,26 +218,37 @@ def test_bad_release_record_never_fails_a_backup_and_clears_stale_link(tmp_path,
     assert (backup / 'restore-on-mac/README.txt').is_file()
 
 
-def test_backups_drop_the_retired_terminal_launcher(tmp_path):
+def test_release_backups_drop_the_terminal_launcher_left_by_an_earlier_attempt(tmp_path):
     backup = tmp_path / 'backup'
     old = backup / 'restore-on-mac/restore-familyfoto-mac.command'
     old.parent.mkdir(parents=True)
-    old.write_text('#!/bin/bash\n')  # left by an earlier attempt of this backup
+    old.write_text('#!/bin/bash\n')
+    handover.write_handover(backup, receipt_file(tmp_path, {'mac_handover': {'release_id': 'test-1', 'setup_url': DMG}}))
+    assert not old.exists() and (backup / 'restore-on-mac/RELEASE.txt').is_file()
+
+
+def test_source_install_backups_keep_the_terminal_launcher(tmp_path):
+    # No release is published to point at yet, so the source route stays usable.
+    backup = tmp_path / 'backup'
+    backup.mkdir()
     handover.write_handover(backup, tmp_path / 'absent.json')
-    assert not old.exists()
-    text = (backup / 'restore-on-mac/README.txt').read_text()
-    assert 'FamilyFoto Setup' in text and 'Restore from a backup' in text
-    assert 'Homebrew' not in text and 'git clone' not in text
+    folder = backup / 'restore-on-mac'
+    assert sorted(p.name for p in folder.iterdir()) == ['README.txt', 'restore-familyfoto-mac.command']
+    assert (folder / 'restore-familyfoto-mac.command').stat().st_mode & 0o700 == 0o700
+    text = (folder / 'README.txt').read_text()
+    assert 'With FamilyFoto Setup' in text and 'With the Terminal launcher' in text
 
 
-def test_a_linked_retired_launcher_is_refused(tmp_path):
+@pytest.mark.skipif(os.name == 'nt', reason='ordinary Windows accounts cannot create symbolic links; '
+                    'hard-link refusal is covered in test_backup_capture_retry')
+def test_a_linked_terminal_launcher_is_refused(tmp_path):
     backup = tmp_path / 'backup'
     old = backup / 'restore-on-mac/restore-familyfoto-mac.command'
     old.parent.mkdir(parents=True)
     (tmp_path / 'elsewhere').write_text('not ours')
     old.symlink_to(tmp_path / 'elsewhere')
     with pytest.raises(ValueError, match='Linked or unexpected'):
-        handover.write_handover(backup, tmp_path / 'absent.json')
+        handover.write_handover(backup, receipt_file(tmp_path, {'mac_handover': {'release_id': 'test-1', 'setup_url': DMG}}))
     assert (tmp_path / 'elsewhere').read_text() == 'not ours'
 
 

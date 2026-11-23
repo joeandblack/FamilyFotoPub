@@ -955,8 +955,8 @@ def test_capture_packs_mac_handover_and_resumes_after_packaging_interruption(wor
 
 @pytest.mark.parametrize('name', ['README.txt', 'restore-familyfoto-mac.command'])
 def test_handover_retry_refuses_linked_launcher(world, name):
-    from app.backup.handover import FILES, FOLDER, RETIRED, write_handover
-    assert name in FILES + RETIRED
+    from app.backup.handover import FILES, FOLDER, LAUNCHER, write_handover
+    assert name in FILES + (LAUNCHER,)
     world.backup.mkdir()
     folder = world.backup / FOLDER
     folder.mkdir()

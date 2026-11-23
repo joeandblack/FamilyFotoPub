@@ -214,15 +214,41 @@ enum Bootstrap {
         guard !backup.isEmpty else { return "Choose the backup folder." }
         let fm = FileManager.default
         var isFolder: ObjCBool = false
-        let path = URL(fileURLWithPath: backup).standardizedFileURL.path
-        guard fm.fileExists(atPath: path + "/catalog", isDirectory: &isFolder), isFolder.boolValue else {
+        let backupURL = URL(fileURLWithPath: backup).standardizedFileURL
+        guard fm.fileExists(atPath: backupURL.appendingPathComponent("catalog").path, isDirectory: &isFolder), isFolder.boolValue else {
             return "This is not a FamilyFoto backup folder: choose the folder that holds catalog and restore-on-mac."
         }
-        let target = URL(fileURLWithPath: installFolder).standardizedFileURL.path
-        if target == path || target.hasPrefix(path + "/") || path.hasPrefix(target + "/") {
+        if overlaps(backupURL, URL(fileURLWithPath: installFolder).standardizedFileURL) {
             return "Choose an installation folder outside the backup folder."
         }
         return nil
+    }
+
+    /// The identities of a folder (if it exists) and each existing parent, after resolving links.
+    static func existingChain(_ url: URL) -> [NSObject] {
+        // Links resolve only in a path that exists, so start from the nearest existing folder.
+        var folder = url
+        while !FileManager.default.fileExists(atPath: folder.path), folder.path != "/" { folder.deleteLastPathComponent() }
+        folder = folder.resolvingSymlinksInPath()
+        var chain: [NSObject] = []
+        while true {
+            if let id = try? folder.resourceValues(forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier as? NSObject {
+                chain.append(id)
+            }
+            let parent = folder.deletingLastPathComponent()
+            if parent.path == folder.path { return chain }
+            folder = parent
+        }
+    }
+
+    /// Either folder is, or is inside, the other, by identity on disk: links, another spelling on a
+    /// case-insensitive disk or a mount can name the same folder.
+    static func overlaps(_ backup: URL, _ target: URL) -> Bool {
+        guard let backupID = existingChain(backup).first else { return false }
+        let targetChain = existingChain(target)
+        if targetChain.contains(where: { $0.isEqual(backupID) }) { return true }
+        guard FileManager.default.fileExists(atPath: target.path), let targetID = targetChain.first else { return false }
+        return existingChain(backup).contains(where: { $0.isEqual(targetID) })
     }
 
     struct Agreement { let text: String; let digest: String }

@@ -104,11 +104,13 @@ is a FamilyFoto backup, outside the installation folder, before downloading anyt
 opens the setup window as a restore with that backup filled in. Nothing needs to be installed
 first, and it restores backups made on a Mac or on Windows.
 
-New plain-media backups include a `restore-on-mac` folder with `README.txt`, which says how to
-get FamilyFoto Setup and restore, and, when the backup's installation came from a release,
-`RELEASE.txt` naming the exact `FamilyFotoSetup.dmg` (see `installer/common/README.md`). Earlier
-backups also carried `restore-familyfoto-mac.command`, a Terminal launcher that needed Homebrew
-and Git; new backups no longer include it, and a retried backup removes it.
+New plain-media backups include a `restore-on-mac` folder with `README.txt`. When the backup's
+installation came from a release, it also gets `RELEASE.txt`, naming the exact
+`FamilyFotoSetup.dmg` to restore with (see `installer/common/README.md`). An installation set up
+from source has no release to name, so its backups get `restore-familyfoto-mac.command` instead:
+a Terminal launcher that needs Command Line Tools, Homebrew and Python 3.12, clones the
+`release/0.1` branch over HTTPS and opens the same setup window in restore mode. A backup never
+has both: a retried release backup removes an earlier launcher.
 
 Setup defaults the library location to `FFLibrary` beside the backup folder for both
 **Copy** and **In place**. For **Copy**, Browse can choose any folder with room for a

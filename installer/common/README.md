@@ -275,8 +275,9 @@ check the DMG's SHA-256 against the release page before the one Open Anyway appr
 choose **Restore from a backup** in FamilyFoto Setup. A Windows release manifest may name
 the Mac setup too, as `"mac_handover": {"release_id": …, "setup_url": …}` (the official
 `FamilyFotoSetup.dmg` link, checked like `setup_url`); staging records it in the ownership
-marker, so backups made on Windows get the same `RELEASE.txt`. Without it, `README.txt`
-points to the releases page.
+marker, so backups made on Windows get the same `RELEASE.txt`. Without a Mac link (a Windows
+release without `mac_handover`, or a source installation), backups keep the Terminal launcher
+`restore-familyfoto-mac.command`, so there is always a working way to restore on a Mac.
 A bad or missing release record is logged and skipped, never failing a backup; a linked
 or unexpected `RELEASE.txt` is refused like the other handover files.
 

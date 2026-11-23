@@ -138,6 +138,34 @@ def test_unusable_backup_is_refused_before_downloading(tmp_path, monkeypatch, wh
     assert not (tmp_path / 'attempt').exists() and not (tmp_path / 'FamilyFoto').exists()
 
 
+def can_link(tmp_path):
+    try:
+        (tmp_path / 'probe-link').symlink_to(tmp_path)
+    except OSError:
+        return False  # ordinary Windows accounts cannot create symbolic links
+    (tmp_path / 'probe-link').unlink()
+    return True
+
+
+@pytest.mark.parametrize('case', ['link-to-backup', 'link-inside-backup', 'backup-through-link', 'other-case'])
+def test_backup_aliases_are_compared_by_identity(tmp_path, monkeypatch, case):
+    backup = backup_folder(tmp_path)
+    (backup / 'sub').mkdir()
+    if case == 'other-case':
+        if not MAC:
+            pytest.skip('case-insensitive APFS behaviour')
+        root, chosen = Path(str(backup).replace('Backup Disk', 'BACKUP DISK')) / 'FamilyFoto', backup
+    else:
+        if not can_link(tmp_path):
+            pytest.skip('this account cannot create symbolic links')
+        link = tmp_path / 'alias'
+        link.symlink_to(backup / 'sub' if case == 'link-inside-backup' else backup)
+        root, chosen = ((backup / 'FamilyFoto', link) if case == 'backup-through-link' else (link / 'FamilyFoto', backup))
+    with pytest.raises(ValueError, match='outside the backup'):
+        run_engine(tmp_path, monkeypatch, root, backup=chosen)
+    assert not (tmp_path / 'attempt').exists() and not (backup / 'FamilyFoto').exists()
+
+
 def test_people_choice_selects_the_people_feature(tmp_path, monkeypatch):
     code, handed, _, _ = run_engine(tmp_path, monkeypatch, tmp_path / 'FamilyFoto', people=True)
     assert code == 0 and json.loads(Path(handed['receipt']).read_text())['features'] == ['core', 'people']
