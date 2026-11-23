@@ -18,16 +18,21 @@ verify = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(verify)
 
 
-@pytest.mark.parametrize('password,valid', [('test-only-password-123', True), ('short', False), ('', False)])
-def test_unattended_password_is_hashed_not_logged(monkeypatch, tmp_path, capsys, password, valid):
+@pytest.mark.parametrize('bom', [b'', b'\xef\xbb\xbf'])
+@pytest.mark.parametrize('password,valid', [('test-only-password-123', True),
+                                         ('Grüße-東京-🔑-password', True), ('short', False), ('', False)])
+def test_unattended_password_is_hashed_not_logged(monkeypatch, tmp_path, capsys, password, valid, bom):
     from installer import configure
     monkeypatch.setattr(configure, 'ROOT', tmp_path)
     monkeypatch.setattr(sys, 'argv', ['configure.py', '--password-stdin'])
-    monkeypatch.setattr(sys, 'stdin', io.StringIO(password + '\n'))
+    # The byte protocol is UTF-8 even when Windows exposes a legacy text wrapper.
+    payload = bom + (password + '\r\n').encode('utf-8')
+    monkeypatch.setattr(sys, 'stdin', io.TextIOWrapper(io.BytesIO(payload), encoding='cp1252'))
     if valid:
         configure.main()
         config = json.loads((tmp_path / 'config/local.json').read_text())
-        assert config['browser_password_hash']
+        from app.auth import verify_password
+        assert verify_password({'password_hash': config['browser_password_hash']}, password)
         assert password not in (tmp_path / 'config/local.json').read_text()
         assert password not in capsys.readouterr().out
         assert config['source'] == config['destination'] == {}
