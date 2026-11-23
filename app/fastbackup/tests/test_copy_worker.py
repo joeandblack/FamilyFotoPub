@@ -5,10 +5,10 @@ import time
 
 import pytest
 
-from fastbackup.copy_worker import copy_in_worker
-from fastbackup import copy_worker
+from app.fastbackup.copy_worker import copy_in_worker
+from app.fastbackup import copy_worker
 from app.backup.diagnostics import ExplainedFailure
-from fastbackup.tests.test_full_copy import fixture, Guard
+from app.fastbackup.tests.test_full_copy import fixture, Guard
 
 
 class SlowGuard(Guard):
@@ -111,7 +111,7 @@ def test_overall_deadline_still_applies_during_exit(tmp_path, monkeypatch):
 
 def test_exit_wait_is_logged_and_failures_keep_safe_diagnostics():
     from app.backup.admin_runner import progress_note
-    from fastbackup.diagnostics import describe
+    from app.fastbackup.diagnostics import describe
     assert 'shutting down' in progress_note({'phase': 'worker-exit', 'state': 'waiting'})
     note = progress_note({'phase': 'worker-exited', 'elapsed_seconds': 6.125, 'exit_code': 0})
     assert '6.125 seconds' in note and 'exit code 0' in note and 'finalization remains' in note

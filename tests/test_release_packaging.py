@@ -66,18 +66,60 @@ def test_test_dependencies_are_not_runtime():
 
 def test_release_contains_fastbackup_runtime_without_tests(tmp_path):
     archive = build(ROOT, tmp_path / 'release', allow_dirty=True)
-    tracked = subprocess.check_output(['git', 'ls-files', '-z', 'fastbackup'], cwd=ROOT).decode().split('\0')
+    tracked = subprocess.check_output(['git', 'ls-files', '-z', 'app/fastbackup', 'fastbackup'], cwd=ROOT).decode().split('\0')
     runtime = {name for name in tracked if name.endswith('.py') and '/tests/' not in name}
     assert 'fastbackup/__main__.py' in runtime
-    assert 'fastbackup/capture.py' in runtime
-    assert 'fastbackup/copy_worker.py' in runtime
+    assert 'app/fastbackup/__main__.py' in runtime
+    assert 'app/fastbackup/capture.py' in runtime
+    assert 'app/fastbackup/copy_worker.py' in runtime
     with zipfile.ZipFile(archive) as package:
         names = set(package.namelist())
         assert {'FamilyFoto/' + name for name in runtime} <= names
         assert not any(name.startswith('FamilyFoto/fastbackup/tests/') for name in names)
+        assert not any(name.startswith('FamilyFoto/app/fastbackup/tests/') for name in names)
         assert not any(name.startswith('FamilyFoto/fastbackup/') and not name.endswith('.py') for name in names)
         manifest = json.loads(package.read('FamilyFoto/release-manifest.json'))
         assert runtime <= manifest['files'].keys()
+        package.extractall(tmp_path / 'extracted')
+    extracted = tmp_path / 'extracted/FamilyFoto'
+    for module in ('app.fastbackup', 'fastbackup'):
+        result = subprocess.run([sys.executable, '-m', module, '--help'], cwd=extracted,
+                                capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0, result.stderr
+        assert 'cleanup-incomplete' in result.stdout
+
+
+def test_packaged_fast_worker_imports_without_source_checkout(tmp_path):
+    archive = build(ROOT, tmp_path / 'release', allow_dirty=True)
+    with zipfile.ZipFile(archive) as package:
+        package.extractall(tmp_path / 'extracted')
+    extracted = tmp_path / 'extracted/FamilyFoto'
+    probe = extracted / 'worker_probe.py'
+    probe.write_text('''from pathlib import Path
+from app.backup.media_inventory import capture_media_inventory
+from app.backup.media_tree import verify_media_tree
+from app.fastbackup.copy_worker import copy_in_worker
+
+def main():
+    source = Path('fixture-source').absolute()
+    source.mkdir()
+    (source / 'photo.jpg').write_bytes(b'synthetic-photo')
+    inventory = Path('fixture-inventory').absolute()
+    target = Path('fixture-copy').absolute()
+    capture_media_inventory(source, inventory, offline_confirmed=True)
+    result = copy_in_worker(source, inventory, target, offline_confirmed=True, timeout=30)
+    assert result['files'] == 1 and result['content_verified'] is True
+    assert verify_media_tree(target)['files'] == 1
+    assert (source / 'photo.jpg').read_bytes() == b'synthetic-photo'
+
+if __name__ == '__main__':
+    main()
+''', encoding='utf-8')
+    environment = dict(os.environ)
+    environment.pop('PYTHONPATH', None)
+    result = subprocess.run([sys.executable, str(probe)], cwd=extracted, env=environment,
+                            capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stderr
 
 
 def test_builder_refuses_dirty_checkout_without_override(monkeypatch, tmp_path):

@@ -2,7 +2,7 @@
 
 Backing up a library, proving a backup restores, restoring after a loss, moving a library to
 another disk or computer, and protected schema upgrades. Detail on the Fast copy engine's design
-and measurements is in the [Fast Backup white paper](../fastbackup/WHITE_PAPER.md); restoring onto
+and measurements is in the [Fast Backup white paper](../app/fastbackup/WHITE_PAPER.md); restoring onto
 a new computer through the installers is in [`installer/`](../installer/README.md).
 
 Contents:
@@ -201,7 +201,7 @@ Unknown formats fail closed. The selected method's description shows below the s
 
 | | Standard | Fast |
 | --- | --- | --- |
-| Engine | `app.backup` resumable copy | `fastbackup`, one spawned media worker |
+| Engine | `app.backup` resumable copy | `app.fastbackup`, one spawned media worker |
 | Copy | Streams each file and checkpoints | Copies everything first (Windows: CopyFile2, 16 workers, no overwrite), then verifies in a separate pass |
 | Retry | Resumes the interrupted capture | Starts a new attempt folder and keeps the interrupted one |
 
@@ -228,10 +228,14 @@ Unknown formats fail closed. The selected method's description shows below the s
 **Command line.** From a checkout, with database authentication through `PGPASSFILE`:
 
 ```powershell
-python -m fastbackup capture --offline --config-root C:\example\config --data-root C:\example\data --media-root E:\example-media --directory F:\new-backup --host 127.0.0.1 --port 55400 --dbname example --username example_user --pg-dump C:\tools\pg_dump.exe --database-budget-bytes 10737418240
-python -m fastbackup verify --directory F:\new-backup
-python -m fastbackup restore --directory F:\new-backup --target-directory D:\new-inactive-restore --host 127.0.0.1 --port 55401 --username restore_admin --pg-restore C:\tools\pg_restore.exe --expected-cluster-directory D:\disposable-postgres --database-budget-bytes 10737418240
+python -m app.fastbackup capture --offline --config-root C:\example\config --data-root C:\example\data --media-root E:\example-media --directory F:\new-backup --host 127.0.0.1 --port 55400 --dbname example --username example_user --pg-dump C:\tools\pg_dump.exe --database-budget-bytes 10737418240
+python -m app.fastbackup verify --directory F:\new-backup
+python -m app.fastbackup restore --directory F:\new-backup --target-directory D:\new-inactive-restore --host 127.0.0.1 --port 55401 --username restore_admin --pg-restore C:\tools\pg_restore.exe --expected-cluster-directory D:\disposable-postgres --database-budget-bytes 10737418240
 ```
+
+The engine lives in `app.fastbackup`, alongside `app.backup`. Existing
+`python -m fastbackup` commands still delegate to the same CLI; the top-level
+package contains only that compatibility launcher, not a second engine.
 
 Capture always uses a new directory (no resume, overwrite, mirror, retirement or automatic cleanup)
 and keeps the offline maintenance gate and database locks for the whole run. Add
@@ -241,8 +245,8 @@ restore into a new inactive target.
 **Reclaiming an incomplete Fast attempt** is an explicit two-step command:
 
 ```text
-python -m fastbackup cleanup-incomplete --directory <incomplete-attempt-folder>
-python -m fastbackup cleanup-incomplete --directory <incomplete-attempt-folder> --confirm-delete --expected-tree <fingerprint>
+python -m app.fastbackup cleanup-incomplete --directory <incomplete-attempt-folder>
+python -m app.fastbackup cleanup-incomplete --directory <incomplete-attempt-folder> --confirm-delete --expected-tree <fingerprint>
 ```
 
 The preview shows the capture ID and file and byte counts; confirm with its exact `expected_tree`.
@@ -878,7 +882,7 @@ databases; never point it at a running library. Real-restic tests need `FAMILYFO
 
 ```text
 python -m pytest tests/test_backup_restic.py tests/test_backup_encrypted_library.py -q
-python -m pytest fastbackup/tests -q
+python -m pytest app/fastbackup/tests -q
 ```
 
 Fault injection covers interrupted copies, journals, publications and database creation, wrong

@@ -346,7 +346,7 @@ def capture(run, config, key):
         run.note('The check passed: the backup matches the library.')
         return
     if strategy == 'fast-full':
-        from fastbackup.capture import capture_library as capture_fast
+        from app.fastbackup.capture import capture_library as capture_fast
         if os.path.lexists(directory):
             retained = [*value.get('retained_attempts', []), str(directory)]
             directory = Path(value['destination']) / f"familyfoto-fastbackup-{value['id']}-{uuid.uuid4().hex}"

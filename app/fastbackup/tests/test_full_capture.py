@@ -5,8 +5,8 @@ import pytest
 
 from app.backup import library
 from app.backup.encrypted import InvalidArtifact
-from fastbackup import capture
-from fastbackup.restore import verify
+from app.fastbackup import capture
+from app.fastbackup.restore import verify
 from tests.backup_keys import backup_key
 from tests.test_backup_capture_retry import fake_components, ample
 

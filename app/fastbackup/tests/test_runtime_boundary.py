@@ -16,17 +16,17 @@ def test_runtime_fastbackup_imports_resolve_without_test_helpers():
             if isinstance(node, ast.ImportFrom):
                 if node.level == 1:
                     names = [node.module] if node.module else [alias.name for alias in node.names]
-                elif node.module == 'fastbackup':
+                elif node.module == 'app.fastbackup':
                     names = [alias.name for alias in node.names]
-                elif node.module and node.module.startswith('fastbackup.'):
-                    names = [node.module.removeprefix('fastbackup.')]
+                elif node.module and node.module.startswith('app.fastbackup.'):
+                    names = [node.module.removeprefix('app.fastbackup.')]
             elif isinstance(node, ast.Import):
-                names = [alias.name.removeprefix('fastbackup.') for alias in node.names
-                         if alias.name.startswith('fastbackup.')]
+                names = [alias.name.removeprefix('app.fastbackup.') for alias in node.names
+                         if alias.name.startswith('app.fastbackup.')]
             for name in names:
                 assert name.split('.')[0] in modules, (path.name, name)
             if isinstance(node, ast.Constant) and isinstance(node.value, str):
-                assert 'fastbackup.tests' not in node.value, path.name
+                assert 'app.fastbackup.tests' not in node.value, path.name
 
 
 def test_local_markdown_links_resolve():

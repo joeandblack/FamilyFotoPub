@@ -2,6 +2,7 @@
 import json
 import subprocess
 import sys
+import configparser
 
 import pytest
 
@@ -17,6 +18,7 @@ from scripts.ci_tests import ROOT, database_modules, group_for, plan, shard_for
     (['installer/macos/SetupWindow.swift'], {'database', 'swift', 'apfs'}),
     (['app/backup/media_tree.py'], {'database', 'swift', 'apfs'}),
     (['fastbackup/capture.py'], {'database', 'apfs'}),
+    (['app/fastbackup/capture.py'], {'database', 'apfs'}),
     (['tests/test_backup_restore_remount.py'], {'apfs'}),
     (['requirements.txt'], {'database', 'swift', 'apfs'}),
     (['.github/workflows/tests.yml'], {'database', 'swift', 'apfs'}),
@@ -37,6 +39,16 @@ def test_shared_database_fixtures_follow_imports():
     assert {'tests/test_uploads.py', 'tests/test_albums.py', 'tests/test_auth_security.py'} <= database_modules()
     assert group_for('tests/test_albums.py::test_example') == 'database'
     assert group_for('tests/test_ci_tests.py::test_example') == 'core'
+    assert group_for('app/fastbackup/tests/test_full_capture_postgres.py::test_example') == 'database'
+    assert group_for('app/fastbackup/tests/test_copy_worker.py::test_example') == 'core'
+
+
+def test_relocated_fast_tests_are_discovered_by_default_and_windows_ci():
+    config = configparser.ConfigParser()
+    config.read(ROOT / 'pytest.ini')
+    assert 'app/fastbackup/tests' in config['pytest']['testpaths'].split()
+    workflow = (ROOT / '.github/workflows/tests.yml').read_text()
+    assert 'python -m pytest tests face_detect/tests app/fastbackup/tests -q' in workflow
 
 
 def test_native_markers_win_over_module_group_and_shards_are_stable():

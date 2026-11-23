@@ -8,8 +8,8 @@ import pytest
 from psycopg import sql
 
 from app.backup.postgres import Endpoint
-from fastbackup.capture import capture_library
-from fastbackup.restore import restore_library, verify
+from app.fastbackup.capture import capture_library
+from app.fastbackup.restore import restore_library, verify
 from tests.backup_keys import backup_key
 from tests.test_backup_postgres import postgres, seed, ample, ROOT  # noqa: F401
 

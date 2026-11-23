@@ -57,7 +57,7 @@ jobs:
           cache-dependency-path: requirements*.txt
       - run: python -m pip install -r requirements-dev.txt
       - run: python -m pip install --require-hashes -r requirements-faces-windows.txt
-      - run: python -m pytest tests face_detect/tests -q
+      - run: python -m pytest tests face_detect/tests app/fastbackup/tests -q
 
   javascript:
     runs-on: ubuntu-latest

@@ -11,7 +11,7 @@ Contents: [Layout](#layout) · [Running from a checkout](#running-from-a-checkou
 app/                 Python API, workers, backup and domain logic
 web/                 Browser interface (vanilla HTML and ES modules)
 face_detect/         The People package (see face_detect/README.md)
-fastbackup/          The Fast backup engine (see fastbackup/WHITE_PAPER.md)
+app/fastbackup/      The Fast backup engine (see app/fastbackup/WHITE_PAPER.md)
 databases/           Versioned PostgreSQL schema SQL
 installer/           Windows and Mac installers and the shared installer engine
 scripts/             Operator scripts (see scripts/README.md)
@@ -63,7 +63,8 @@ ruff check .
   `tests/selection-browser.mjs`, `tests/viewer-caption-browser.mjs`,
   `tests/photo-zoom-browser.mjs` and `tests/login-browser.mjs`. All use synthetic or isolated
   data, and none installs a browser.
-- `face_detect/tests` hold the People package tests; run them too.
+- `face_detect/tests` hold the People package tests. `app/fastbackup/tests` hold
+  the Fast engine and worker tests. Both are included in default pytest discovery.
 - Disposable test databases are recreated when their schema is behind; never migrate a stale
   throwaway database or bypass the verified-backup requirement. For a development catalog with
   data you need to keep, follow [Backup](BACKUP.md#schema-upgrades).

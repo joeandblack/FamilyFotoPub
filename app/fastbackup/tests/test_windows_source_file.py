@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from fastbackup.windows_pinned_directory import PinnedDirectory, PinnedSourceFile
+from app.fastbackup.windows_pinned_directory import PinnedDirectory, PinnedSourceFile
 
 pytestmark = pytest.mark.skipif(os.name != 'nt', reason='Actual Windows file sharing')
 

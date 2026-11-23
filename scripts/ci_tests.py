@@ -21,7 +21,7 @@ def database_modules():
     Whole modules stay together: some contain both pure and integration tests.
     Conservative extra DB classification is preferable to silently skipping a fixture.
     """
-    files = {p.relative_to(ROOT).as_posix(): p for folder in ('tests', 'face_detect/tests')
+    files = {p.relative_to(ROOT).as_posix(): p for folder in ('tests', 'face_detect/tests', 'app/fastbackup/tests')
              for p in (ROOT / folder).glob('*.py')}
     aliases = {}
     for name in files:
@@ -73,11 +73,11 @@ def plan(paths, full=False):
         if path.startswith(('installer/macos/', 'installer/common/', 'app/backup/', 'app/migration/')) or path in (
                 'tests/test_mac_launcher.py', 'tests/test_macos_setup_window.py', 'app/config.py'):
             result['swift'] = True
-        if path.startswith(('app/backup/', 'app/storage/', 'app/migration/', 'fastbackup/', 'installer/macos/', 'installer/common/')) or path in (
+        if path.startswith(('app/backup/', 'app/fastbackup/', 'app/storage/', 'app/migration/', 'fastbackup/', 'installer/macos/', 'installer/common/')) or path in (
                 'tests/test_backup_capture_retry.py', 'tests/test_backup_restore_remount.py',
                 'tests/test_macos_native_media.py'):
             result['apfs'] = True
-        if path.startswith(('tests/', 'face_detect/tests/')) and (ROOT / path).is_file():
+        if path.startswith(('tests/', 'face_detect/tests/', 'app/fastbackup/tests/')) and (ROOT / path).is_file():
             source = (ROOT / path).read_text(encoding='utf-8')
             for group in result:
                 if 'ci_' + group in source:

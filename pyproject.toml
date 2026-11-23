@@ -31,7 +31,7 @@ distribution = "application-directory"
 [tool.familyfoto.entrypoints]
 asgi = ["app.api:app"]
 modules = [
-  "fastbackup",
+  "app.fastbackup", "fastbackup",
   "app.backup", "app.backup.verify", "app.backup.state_files", "app.backup.manage", "app.backup.admin_runner", "app.backup.admin_restore",
   "app.migration.preview_server", "app.migration.launch",
   "app.service.server", "app.service.desktop", "app.service.macos", "app.service.live",
@@ -64,6 +64,7 @@ ignore = ["E701", "E702", "E731"]
 # but are required (they are used as test arguments), so these rules are off for tests.
 "tests/**" = ["F401", "F811"]
 "face_detect/tests/**" = ["F401", "F811"]
+"app/fastbackup/tests/**" = ["F401", "F811"]
 # Scripts and installers adjust sys.path before importing project modules.
 "scripts/**" = ["E402"]
 "installer/**" = ["E402"]

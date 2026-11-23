@@ -3,9 +3,9 @@ import subprocess
 
 import pytest
 
-from fastbackup.tests.windows_copy_fixture import _copy, _guid, run_synthetic
-from fastbackup.windows_pinned_directory import PinnedDirectory, PinnedSourceFile
-from fastbackup.tests import windows_copy_fixture as native
+from app.fastbackup.tests.windows_copy_fixture import _copy, _guid, run_synthetic
+from app.fastbackup.windows_pinned_directory import PinnedDirectory, PinnedSourceFile
+from app.fastbackup.tests import windows_copy_fixture as native
 
 
 @pytest.mark.parametrize('size', [-1, True, 16 * 1024**2 + 1])

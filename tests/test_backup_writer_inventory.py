@@ -11,7 +11,8 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 ENTRYPOINTS = {
     'app/backup/__main__.py': 'offline coordinator',
-    'fastbackup/__main__.py': 'offline coordinator: capture holds the maintenance gate; verify, restore and cleanup write only to new or owned folders',
+    'app/fastbackup/__main__.py': 'offline coordinator: capture holds the maintenance gate; verify, restore and cleanup write only to new or owned folders',
+    'fastbackup/__main__.py': 'compatibility launcher delegates to app.fastbackup.__main__.main',
     'app/backup/admin_restore.py': 'isolated recovery folder only; holds no lease and avoids load_config',
     'app/backup/admin_runner.py': 'offline coordinator; holds no lease and avoids load_config',
     'app/backup/manage.py': 'offline coordinator',
