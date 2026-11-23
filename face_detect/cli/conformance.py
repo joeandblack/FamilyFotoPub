@@ -39,6 +39,24 @@ CANDIDATES = '''SELECT d.id, a.content_hash, d.box, d.score
       AND NOT EXISTS (SELECT 1 FROM public.media_trash t WHERE t.media_id = m.id)'''
 
 
+def stored_vectors(cfg):
+    """Whether the library holds any face vectors to check this computer against. Read-only.
+
+    Without any (People on but no faces found yet), there is nothing to compare, and the first
+    scan may write freely (face_detect.catalog.certify.may_write)."""
+    import psycopg
+    from psycopg.rows import dict_row
+    from face_detect import catalog
+    from face_detect.catalog.spaces import active_space
+    with psycopg.connect(**catalog.database(cfg), row_factory=dict_row, connect_timeout=5) as db:
+        db.execute('SET default_transaction_read_only = on')
+        if not catalog.exists(db):
+            return False
+        model = active_space(db)
+        return model is not None and db.execute(
+            'SELECT EXISTS(SELECT 1 FROM embedding WHERE space_id = %s) x', (model,)).fetchone()['x']
+
+
 def read_library(cfg, data_root, size):
     """The stored vectors' model manifest, a sample of good stored faces with their vectors,
     and where each sampled photo is. One read-only transaction; the vectors of the sample only."""

@@ -46,6 +46,7 @@ def steps(monkeypatch):
                                                                       'worst': 0.9988, 'median': 1.0})
     monkeypatch.setattr('face_detect.cli.conformance.record_certificate',
                         lambda cfg, result: calls.append(('record', result['passed'])))
+    monkeypatch.setattr('face_detect.cli.conformance.stored_vectors', lambda cfg: True)
     calls.closed = closed
     return calls
 
@@ -70,6 +71,15 @@ def test_skip_check_leaves_it_to_the_first_scan(steps):
     report = people_setup.run(True, check=False)
     assert report['library_check'] == 'skipped'
     assert ('check',) not in steps and not any(call[0] == 'record' for call in steps)
+
+
+def test_a_library_with_people_but_no_faces_yet_has_nothing_to_check(steps, monkeypatch):
+    # Found in a clean-Mac restore: People on, no faces found yet, and the check raised.
+    monkeypatch.setattr('face_detect.cli.conformance.stored_vectors', lambda cfg: False)
+    report = people_setup.run(True, port=54999)
+    assert report['library_check'] == 'no-stored-faces'
+    assert steps == [('setup', 'insightface', True, True), ('prepare', 54999)]  # no check, nothing recorded
+    assert steps.closed == []
 
 
 def test_a_library_without_the_catalog_is_refused_before_anything_is_installed(steps, monkeypatch):

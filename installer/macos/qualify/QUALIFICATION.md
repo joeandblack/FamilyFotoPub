@@ -81,6 +81,16 @@ the automatic checks; everything marked **(manual)** needs a person at the VM.
     blocked. Its working folders are in the home folder: `/var` is a symlink and the engine refuses
     linked paths.
   - **VM B (by hand):** scenarios 1, 3 and 4 below, the real first launch and setup window.
+  - **Scenario 8 (restore a Mac backup):** after `vm-auto-test.sh`, VM A makes the backup with
+    `vm-make-backup.py` (beside this file): it switches the administrator to a short password you
+    can type in a VM window, adds three JPEGs, a HEIC and an MP4 through the app, and makes a real
+    verified backup through the backup API onto a disk image (`hdiutil create -size 3g -fs APFS
+    -volname FFBackup`). Run it with the installation's Python, the install password and the short
+    one on stdin. Move the disk image to a fresh VM B (`hdiutil convert -format UDZO` to copy it,
+    `UDRW` to use it), mount it, and restore it there with FamilyFoto Setup by hand.
+  - The offline step blocks the internet with `pf` but must leave loopback open (`set skip on lo0`):
+    without it, a database connection closing on 127.0.0.1 is left half-open, and a later stop or
+    backup refuses ("Stop all database clients").
 - Download the DMG **in Safari inside the VM** so it carries the quarantine mark, as a user's would
   (or copy it in and add the mark: `xattr -w com.apple.quarantine "0081;$(printf %x $(date +%s));Safari;" FILE`).
 - Restore the snapshot before every scenario below.
@@ -111,3 +121,5 @@ Record for each VM: macOS version, release ID and DMG SHA-256, scenario results,
 |---|---|---|---|
 | 2026-11-22 | develop 75d48b4, offline DMG, `minimum_os` 27.2 | macOS 27.2, VM A (automatic) | All steps passed: engine with People 3 s, unattended install 20 s, stop 1 s, `installed` 12/12, offline install. |
 | 2026-11-22 | same | macOS 27.2, VM B (by hand) | One Open Anyway approval; launcher, agreement, setup window, new library with People, sign-in; `installed` 12/12. Found: the launcher did not check the setup window's 10 GB free space before downloading, and the People text said the model is downloaded (both fixed). |
+| 2026-11-23 | main c6441b3, offline DMG with the real terms, `minimum_os` 27.2 | macOS 27.2, VM A (automatic) | All steps passed: engine with People 3 s, unattended install 19 s, stop 1 s, `installed` 12/12, offline install. A small library and a verified backup (5 files, 11 s) with `RELEASE.txt` and no Terminal launcher. |
+| 2026-11-23 | same | macOS 27.2, VM B (by hand), scenario 8 | One Open Anyway approval; FamilyFoto Setup, **Restore from a backup**, Copy, with People. Catalog, 5 files, switch-on, thumbnails and move-in passed, then People setup stopped: the library had People on but no faces yet, and the library check raised (fixed: it is skipped with `no-stored-faces`). Resumed with the fix: running with the restored library, `installed` 12/12, the backup's account signs in, 5 media. |
