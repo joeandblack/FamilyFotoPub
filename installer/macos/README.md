@@ -100,8 +100,8 @@ bash installer/macos/install.sh restore
 New plain-media backups include a `restore-on-mac` folder with instructions and
 `restore-familyfoto-mac.command`. Run the launcher with Bash from Terminal.
 It asks for a fresh installation folder (suggesting `~/FamilyFoto-Restore` when
-launched from a backup), downloads `develop` using GitHub SSH, and opens
-the restore window. The Mac needs repository access and the prerequisites above.
+launched from a backup), downloads the `release/0.1` branch of the public repository over HTTPS, and opens
+the restore window. The Mac needs internet access and the prerequisites above.
 The terminal reports while the setup window is being compiled.
 
 Setup defaults the library location to `FFLibrary` beside the backup folder for both

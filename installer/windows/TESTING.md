@@ -12,12 +12,12 @@ Do not remove the live task/service or bypass those guards to make testing work.
 
 ## Get the Code
 
-Download ZIP from the repository's `codex/native-face-providers` branch and
+Download ZIP from the repository's `main` branch and
 extract the complete application so `C:\FamilyFoto\installer` exists. Do not
 download `main` or copy only the installer folder. Git users can instead run:
 
 ```powershell
-git clone --branch codex/native-face-providers --single-branch https://github.com/joeandblack/FamilyFoto.git C:\FamilyFoto
+git clone --branch main --single-branch https://github.com/joeandblack/FamilyFotoPub.git C:\FamilyFoto
 ```
 
 No Git, Node, Codex or Docker is required after downloading the source. Python,

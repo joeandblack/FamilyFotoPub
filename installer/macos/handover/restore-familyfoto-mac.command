@@ -61,12 +61,12 @@ staging="$(mktemp -d "${TMPDIR:-/tmp}/familyfoto-download.XXXXXX")"
 cleanup() { rm -rf -- "$staging"; }
 trap cleanup EXIT
 # The branch to install. Change this one name when releases move to another branch.
-branch=beta-release-v4
+branch=release/0.1
 printf '\nDownloading %s from GitHub…\n' "$branch"
-# Uses the same GitHub SSH access as the earlier clone command.
+# The public repository downloads over HTTPS; no GitHub account or SSH key is needed.
 git clone --depth 1 --single-branch --branch "$branch" \
-    git@github.com:joeandblack/FamilyFoto.git "$staging/source" || \
-    fail 'Download failed. Check this Mac’s GitHub SSH access and network connection, then try again.'
+    https://github.com/joeandblack/FamilyFotoPub.git "$staging/source" || \
+    fail 'Download failed. Check this Mac’s network connection, then try again.'
 
 mkdir -p -- "$install_folder"
 # Refuse a collision if another process populated the destination during download.

@@ -2,7 +2,7 @@
 
 This is the first packaging/versioning baseline. It preserves the application
 directory layout; it does not rename `app`, change database schemas, deploy code,
-or resume workers. `0.1.0.dev0` is a development baseline, not a qualified stable
+or resume workers. The version is `0.1.0b1` (tag `v0.1.0-beta.1`), a first public beta, not a qualified stable
 release or an assertion about versions of previous unversioned installations.
 
 ## Supported artifact

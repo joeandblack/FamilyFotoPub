@@ -107,8 +107,7 @@ existing tag is prohibited by the release process; the URL alone cannot enforce
 remote immutability.
 Hosting plan (owner decision, 2026-11-22): releases will be published from a fresh
 public repository with GitHub immutable releases turned on; this repository stays as it
-is. `RELEASE_BASE` in `manifest.py` still names this repository and must change to the
-new one before the first release (one constant; the release-link tests follow it).
+is. `RELEASE_BASE` in `manifest.py` names that public repository, `joeandblack/FamilyFotoPub`.
 Before distributing a launcher, verify every release asset downloads without GitHub
 credentials. The shared manifest selects EXE for Windows or DMG for Mac.
 
@@ -298,8 +297,8 @@ complete and deploying it, finish these gates in this same PR:
   complete notices/source materials, and tested per-platform closures/model identity.
 - Qualify the new Windows handover against actual published release URLs and a
   moved backup disk. The wiring is implemented; release hosting is not yet published.
-- Releases: create the fresh public release repository with GitHub immutable releases
-  on, point `RELEASE_BASE` at it, and publish each asset's SHA-256 on its release page.
+- Releases: publish each asset's SHA-256 on its release page of `joeandblack/FamilyFotoPub`,
+  with GitHub immutable releases on.
 - Mac signing: ad-hoc signing with one Open Anyway approval (no Apple Developer
   Program); the owner deferred Developer ID signing and notarization (2026-11-22).
 - Mac: build the first release on an up-to-date build Mac (`brew upgrade`, so the audit

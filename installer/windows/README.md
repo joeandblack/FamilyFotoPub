@@ -80,15 +80,13 @@ window.
 
 To download the release and open Restore in one step, run
 `handover/restore-familyfoto-windows.ps1` from an administrator PowerShell window
-under the account that will operate FamilyFoto. Git is required. Downloads use
-HTTPS with the existing GitHub CLI (`gh`) login for this private repository:
-run `gh auth login --hostname github.com --git-protocol https` if needed. No SSH
-key or global Git configuration change is needed. Without `gh`, it attempts
-anonymous HTTPS (usable once the repository is public). It prompts for an
+under the account that will operate FamilyFoto. Git is required. It downloads
+from the public repository over HTTPS (using an existing GitHub CLI login if there is
+one, otherwise anonymously); no GitHub account, SSH key or Git configuration change is needed. It prompts for an
 installation folder, defaulting to the current folder;
 `-InstallDirectory D:\FamilyFotoRestore` supplies it directly. The destination must
 be fresh (only the launcher itself may be present), on a fixed local NTFS disk,
-without spaces, and have at least 10 GB free. It downloads `beta-release-2` and
+without spaces, and have at least 10 GB free. It downloads the `release/0.1` branch and
 opens the existing restore window, where instance/ports and all restore choices
 are checked. It does not restore until you submit that window. Do not use it to
 overwrite an existing installation. After interrupted setup, keep that folder and
