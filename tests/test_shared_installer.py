@@ -58,7 +58,7 @@ def test_release_pinning_and_platform():
 def test_mac_manifest_accepts_dmg_link_only():
     doc = document()
     doc['platform'] = 'macos-arm64'
-    doc['setup_url'] = 'https://github.com/joeandblack/FamilyFoto/releases/download/test-1/FamilyFotoSetup.dmg'
+    doc['setup_url'] = 'https://github.com/joeandblack/FamilyFotoPub/releases/download/test-1/FamilyFotoSetup.dmg'
     assert manifest(doc).plan(['core'], 'macos-arm64')
     doc['setup_url'] = doc['setup_url'].replace('.dmg', '.exe')
     with pytest.raises(ValueError):
@@ -394,7 +394,7 @@ def test_application_stage_refuses_existing_and_changed(tmp_path, prefix):
     item = component('application', data)
     doc = document([item])
     doc['features']['core'] = ['application']
-    doc['setup_url'] = 'https://github.com/joeandblack/FamilyFoto/releases/download/test-1/FamilyFotoSetup.exe'
+    doc['setup_url'] = 'https://github.com/joeandblack/FamilyFotoPub/releases/download/test-1/FamilyFotoSetup.exe'
     release = manifest(doc)
     receipt = {'paths': {'application': str(archive)}}
     target = tmp_path / 'app'
@@ -445,7 +445,7 @@ def test_release_audit_requires_complete_payloads(tmp_path):
     doc = document()
     with pytest.raises(ValueError, match='setup_url'):
         audit_windows_release(manifest(doc), tmp_path)
-    doc.update(setup_url='https://github.com/joeandblack/FamilyFoto/releases/download/test-1/FamilyFotoSetup.exe',
+    doc.update(setup_url='https://github.com/joeandblack/FamilyFotoPub/releases/download/test-1/FamilyFotoSetup.exe',
                minimum_os='10.0.22000')
     with pytest.raises(ValueError, match='Missing core'):
         audit_windows_release(manifest(doc), tmp_path)

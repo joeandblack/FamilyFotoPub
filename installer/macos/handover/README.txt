@@ -2,7 +2,7 @@ Restore this FamilyFoto backup on a Mac
 
 Before you begin
 - Use an Apple Silicon Mac with Command Line Tools, Homebrew and Homebrew Python 3.12 installed.
-- The launcher downloads the latest develop branch from GitHub using SSH. This Mac needs internet access and access to the FamilyFoto repository.
+- The launcher downloads the release/0.1 branch of the public FamilyFotoPub repository from GitHub over HTTPS. This Mac needs internet access; no GitHub account is needed.
 - Know the FamilyFoto administrator password from when this backup was made. A later password change does not change an existing backup.
 - Finish the backup and stop FamilyFoto on the old computer before switching to the restored library.
 

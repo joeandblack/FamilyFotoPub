@@ -10,7 +10,7 @@ from urllib.parse import quote, urlsplit
 LOCK_ROLES = ('core', 'password', 'people-view', 'insightface', 'facenet')
 # Bundled native programs a platform adapter unpacks (link-free ZIPs; see README).
 RUNTIME_ROLES = ('python', 'postgres', 'ffmpeg', 'setup-window')
-RELEASE_BASE = 'https://github.com/joeandblack/FamilyFoto/releases/download'
+RELEASE_BASE = 'https://github.com/joeandblack/FamilyFotoPub/releases/download'
 SETUP_ASSETS = {'windows-x64': 'FamilyFotoSetup.exe', 'macos-arm64': 'FamilyFotoSetup.dmg'}
 
 
