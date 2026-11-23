@@ -234,24 +234,43 @@ def test_source_install_backups_keep_the_terminal_launcher(tmp_path):
     handover.write_handover(backup, tmp_path / 'absent.json')
     folder = backup / 'restore-on-mac'
     assert sorted(p.name for p in folder.iterdir()) == ['README.txt', 'restore-familyfoto-mac.command']
-    assert (folder / 'restore-familyfoto-mac.command').stat().st_mode & 0o700 == 0o700
+    if os.name != 'nt':  # Windows has no Unix execute bit to set or read
+        assert (folder / 'restore-familyfoto-mac.command').stat().st_mode & 0o700 == 0o700
     text = (folder / 'README.txt').read_text()
     assert 'With FamilyFoto Setup' in text and 'With the Terminal launcher' in text
-    # It downloads exactly the code that made the backup: this checkout's commit.
-    head = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=handover.ROOT, capture_output=True, text=True,
-                          check=True).stdout.strip()
-    assert f"commit='{head}'\n" in (folder / 'restore-familyfoto-mac.command').read_text()
+    # It names exactly the code that made the backup (this checkout's commit, if unchanged).
+    assert f"commit='{handover.source_commit()}'\n" in (folder / 'restore-familyfoto-mac.command').read_text()
 
 
-def test_source_commit_from_a_checkout_a_release_manifest_or_neither(tmp_path):
-    assert handover.source_commit(tmp_path) == ''  # neither: the launcher then refuses
-    (tmp_path / 'release-manifest.json').write_text(json.dumps({'source_commit': 'b' * 40}))
-    assert handover.source_commit(tmp_path) == 'b' * 40  # a release folder is not a checkout
-    (tmp_path / 'release-manifest.json').write_text(json.dumps({'source_commit': 'main'}))
-    assert handover.source_commit(tmp_path) == ''
-    head = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=handover.ROOT, capture_output=True, text=True,
-                          check=True).stdout.strip()
-    assert handover.source_commit(handover.ROOT) == head
+def git(root, *args):
+    return subprocess.run(['git', '-C', str(root), *args], capture_output=True, text=True, check=True).stdout.strip()
+
+
+def test_source_commit_only_for_an_unchanged_checkout(tmp_path):
+    assert handover.source_commit(tmp_path) == ''  # neither a checkout nor a release folder
+    git(tmp_path, 'init', '-q')
+    (tmp_path / 'app.py').write_text('original\n')
+    git(tmp_path, 'add', 'app.py')
+    git(tmp_path, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-q', '-m', 'one')
+    head = git(tmp_path, 'rev-parse', 'HEAD')
+    assert handover.source_commit(tmp_path) == head
+    (tmp_path / 'notes.txt').write_text('untracked files are not code\n')
+    assert handover.source_commit(tmp_path) == head
+    (tmp_path / 'app.py').write_text('changed locally\n')
+    assert handover.source_commit(tmp_path) == ''  # HEAD is not the code that made the backup
+    git(tmp_path, 'add', 'app.py')
+    assert handover.source_commit(tmp_path) == ''  # staged changes count too
+
+
+def test_source_commit_for_a_release_folder_only_while_it_matches_its_manifest(tmp_path):
+    from installer.release import build
+    with zipfile.ZipFile(build(ROOT, tmp_path / 'release', allow_dirty=True)) as package:
+        package.extractall(tmp_path / 'extracted')
+    installed = tmp_path / 'extracted/FamilyFoto'
+    manifest = json.loads((installed / 'release-manifest.json').read_text())
+    assert handover.source_commit(installed) == manifest['source_commit']
+    (installed / 'app/backup/handover.py').write_text('# edited after installing\n')
+    assert handover.source_commit(installed) == ''
 
 
 def test_launcher_is_written_with_one_commit_line():

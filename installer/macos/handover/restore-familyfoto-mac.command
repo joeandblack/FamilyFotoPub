@@ -31,7 +31,7 @@ print(os.path.abspath(os.path.expanduser(value)))
 [[ -x /opt/homebrew/bin/brew ]] || fail 'Install Homebrew first, then run this again.'
 [[ -x /opt/homebrew/opt/python@3.12/bin/python3.12 ]] || fail 'Run: /opt/homebrew/bin/brew install python@3.12, then run this again.'
 xcrun --find swiftc >/dev/null 2>&1 || fail 'Install the Command Line Tools with xcode-select --install, then run this again.'
-[[ "$commit" =~ ^[0-9a-f]{40}$ ]] || fail 'This launcher does not name the FamilyFoto version that made the backup, so it cannot download matching code. Use the copy in the backup'"'"'s restore-on-mac folder; if that one says this too, make a new backup.'
+[[ "$commit" =~ ^[0-9a-f]{40}$ ]] || fail 'This launcher names no published FamilyFoto version, so it cannot download the code that made the backup. Either the computer that made it ran FamilyFoto with local changes or code that could not be identified, or this copy is not the one from the backup'"'"'s restore-on-mac folder. On that computer, return to a clean, published version and make a new backup.'
 
 script_path="$(read_path "$0")"
 starting_folder="$(pwd -P)"

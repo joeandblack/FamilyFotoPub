@@ -1,6 +1,5 @@
 """Write the Mac restore instructions, and for source installations the launcher, into a backup."""
 from pathlib import Path
-import json
 import logging
 import os
 import re
@@ -23,22 +22,32 @@ EMPTY_COMMIT = b"commit=''\n"
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def _git(root, *args):
+    result = subprocess.run(['git', '-C', str(root), *args], capture_output=True, text=True,
+                            timeout=60, stdin=subprocess.DEVNULL)
+    if result.returncode != 0:
+        raise OSError('git ' + args[0] + ' failed')
+    return result.stdout.strip()
+
+
 def source_commit(root=ROOT):
-    """The commit of this installation's code: its Git checkout, else its release manifest; '' if neither."""
-    commit = ''
-    # Only in a checkout: on a Mac without Command Line Tools, git itself opens an install prompt.
-    if (root / '.git').exists():
-        try:
-            result = subprocess.run(['git', '-C', str(root), 'rev-parse', '--verify', 'HEAD^{commit}'],
-                                    capture_output=True, text=True, timeout=30, stdin=subprocess.DEVNULL)
-            commit = result.stdout.strip() if result.returncode == 0 else ''
-        except (OSError, subprocess.SubprocessError):
-            commit = ''
-    if not commit:
-        try:  # a release's application folder is not a checkout; its manifest names the commit
-            commit = json.loads((root / 'release-manifest.json').read_text(encoding='utf-8'))['source_commit']
-        except (OSError, ValueError, KeyError, TypeError):
-            commit = ''
+    """The commit of this installation's code, only when the code is shown to be exactly it; else ''.
+
+    A Git checkout: HEAD, and no tracked file differs from it. A release folder (not a checkout):
+    its release-manifest.json commit, and every file the manifest lists matches its SHA-256.
+    Files outside those (untracked files in a checkout, or added to a release folder) are not
+    covered. Anything else gets '', and the launcher then refuses rather than restore with other code."""
+    try:
+        if (root / '.git').exists():
+            # Only in a checkout: on a Mac without Command Line Tools, git itself opens an install prompt.
+            commit = _git(root, 'rev-parse', '--verify', 'HEAD^{commit}')
+            if _git(root, 'status', '--porcelain', '--untracked-files=no'):
+                return ''  # local changes: HEAD is not the code that made this backup
+        else:
+            from installer.release import verify
+            commit = verify(root)['source_commit']
+    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
+        return ''
     return commit if isinstance(commit, str) and re.fullmatch('[0-9a-f]{40}', commit) else ''
 
 
@@ -131,7 +140,8 @@ def write_handover(backup, receipt_path=None):
     else:
         commit = source_commit()
         if not commit:
-            logging.getLogger(__name__).warning('The Mac restore launcher cannot name this code version: no Git checkout or release manifest')
+            logging.getLogger(__name__).warning('The Mac restore launcher names no code version: this installation '
+                                                'has local changes or cannot be identified, so it will refuse to run')
         _publish(folder, LAUNCHER, launcher(commit), 0o700)
     sync_directory(folder)
     write_windows_handover(backup, receipt_path)

@@ -40,6 +40,7 @@ def git(*args, cwd):
     return subprocess.run(['git', *args], cwd=cwd, check=True, capture_output=True, text=True).stdout.strip()
 
 
+@unittest.skipUnless(sys.platform == 'darwin', 'The launcher runs only on macOS (Bash at /bin/bash)')
 class ExactCommitTests(unittest.TestCase):
     """The launcher's real download block, run against a local repository instead of GitHub."""
 
