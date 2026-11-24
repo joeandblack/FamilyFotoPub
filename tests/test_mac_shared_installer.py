@@ -204,7 +204,9 @@ def test_new_backups_name_the_mac_release(tmp_path):
     assert DMG in text and 'install.sh restore' in text and 'Do not run programs' in text
     assert 'shasum -a 256' in text and 'Open Anyway' in text
     assert sorted(p.name for p in (backup / 'restore-on-mac').iterdir()) == ['README.txt', 'RELEASE.txt']
-    assert not (backup / 'restore-on-windows').exists()  # a Mac release names no Windows installer
+    # Without a Windows release link, use the exact-source fallback, never an unrelated EXE.
+    assert (backup / 'restore-on-windows/restore-familyfoto-windows.ps1').exists()
+    assert 'FamilyFotoSetup.exe' not in (backup / 'restore-on-windows/README.txt').read_text()
 
 
 @pytest.mark.parametrize('content', ['{', {'mac_handover': {'release_id': 'test-1'}},

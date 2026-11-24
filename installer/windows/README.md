@@ -78,20 +78,24 @@ window.
 
 ## Restore from a backup
 
-To download the release and open Restore in one step, run
-`handover/restore-familyfoto-windows.ps1` from an administrator PowerShell window
+Release backups name their matching `FamilyFotoSetup.exe` in
+`restore-on-windows/README.txt`. Source-install backups include an exact-commit
+`restore-on-windows/restore-familyfoto-windows.ps1`. After checking its provenance,
+run that launcher from an administrator PowerShell window
 under the account that will operate FamilyFoto. Git is required. It downloads
 from the public repository over HTTPS (using an existing GitHub CLI login if there is
 one, otherwise anonymously); no GitHub account, SSH key or Git configuration change is needed. It prompts for an
 installation folder, defaulting to the current folder;
 `-InstallDirectory D:\FamilyFotoRestore` supplies it directly. The destination must
 be fresh (only the launcher itself may be present), on a fixed local NTFS disk,
-without spaces, and have at least 10 GB free. It downloads the `release/0.1` branch and
+without spaces, and have at least 10 GB free. It fetches and checks out only the
+backup's stamped commit, verifies HEAD, and
 opens the existing restore window, where instance/ports and all restore choices
 are checked. It does not restore until you submit that window. Do not use it to
 overwrite an existing installation. After interrupted setup, keep that folder and
-run its `install.ps1 -Mode Restore` instead. This launcher is currently a separate
-download; it is not yet bundled into backups.
+run its `install.ps1 -Mode Restore` instead. The repository's unstamped launcher
+template refuses to run. Backups from locally modified or unidentifiable code
+also get a disabled launcher rather than silently choosing a different version.
 
 `-Mode Install` asks whether this is a new library or a restore from a backup.
 `-Mode Restore` goes straight to the restore. Either way, Core is installed first, if it isn't
