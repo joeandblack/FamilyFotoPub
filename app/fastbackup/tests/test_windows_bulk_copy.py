@@ -6,7 +6,7 @@ import pytest
 from app.fastbackup.windows_bulk_copy import copy_files
 
 
-def test_bare_primitive_calls_copyfile2_without_filesystem_checks(tmp_path, monkeypatch):
+def test_primitive_checks_destination_without_reading_source(tmp_path, monkeypatch):
     from app.fastbackup import windows_bulk_copy as bulk
     calls = []
 
@@ -17,6 +17,36 @@ def test_bare_primitive_calls_copyfile2_without_filesystem_checks(tmp_path, monk
     monkeypatch.setattr(bulk, 'copy_api', lambda: native)
     bulk.copy_file(tmp_path / 'not-inspected-source', tmp_path / 'not-inspected-target')
     assert calls == [(str(tmp_path / 'not-inspected-source'), str(tmp_path / 'not-inspected-target'), 0x8801)]
+
+
+@pytest.mark.parametrize('kind', ['file', 'directory', 'entry-reported-by-lstat'])
+def test_existing_entry_refused_before_native_copy(tmp_path, monkeypatch, kind):
+    from app.fastbackup import windows_bulk_copy as bulk
+    target = tmp_path / 'target'
+    if kind == 'file':
+        target.write_bytes(b'keep')
+    elif kind == 'directory':
+        target.mkdir()
+    else:
+        # Exercise a reported entry without creating a link; the native test covers real links.
+        monkeypatch.setattr(bulk.os, 'lstat', lambda path: object())
+    def forbidden():
+        pytest.fail('Native copy must not be called for an existing entry')
+    monkeypatch.setattr(bulk, 'copy_api', forbidden)
+    with pytest.raises(FileExistsError):
+        bulk.copy_file(tmp_path / 'source', target)
+    if kind == 'file':
+        assert target.read_bytes() == b'keep'
+
+
+def test_destination_inspection_error_fails_closed(tmp_path, monkeypatch):
+    from app.fastbackup import windows_bulk_copy as bulk
+    def denied(path):
+        raise PermissionError('cannot inspect target')
+    monkeypatch.setattr(bulk.os, 'lstat', denied)
+    monkeypatch.setattr(bulk, 'copy_api', lambda: pytest.fail('Native copy must not run'))
+    with pytest.raises(PermissionError):
+        bulk.copy_file(tmp_path / 'source', tmp_path / 'target')
 
 
 def test_native_failure_is_not_reported_as_success(tmp_path, monkeypatch):

@@ -220,6 +220,12 @@ Unknown formats fail closed. The selected method's description shows below the s
   isn't found and a file changed after its copy isn't compared again. Destination mismatches still
   fail. Destination files aren't locked across phases, so keep other programs out of the backup
   folder too.
+- Windows checks each destination with `lstat` before copying and refuses any existing
+  entry, including dangling symlinks, while retaining CopyFile2's fail-if-exists flag.
+  This metadata check does not read file contents. It is not atomic with the copy:
+  another program could plant a destination link between the check and CopyFile2.
+  Concurrent destination tampering is not prevented; keep the backup folder private
+  and unmodified. Later verification cannot undo a write redirected through such a link.
 - The worker reports a five-second heartbeat; cancellation and a total copy deadline (default seven
   days, `--copy-timeout-seconds`) kill and reap it, and completion is never accepted without a clean
   worker exit. Failures carry safe explanations and OS error codes, never raw paths or tool output.
