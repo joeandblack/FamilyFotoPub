@@ -127,7 +127,10 @@ def test_real_setup_pins_and_windows_locks_agree():
     assert password and set(password) <= set(core)
     # setup-password.ps1 pins the same files and downloads them from PyPI even with a receipt (-Network).
     script = (ROOT / 'installer/windows/setup-password.ps1').read_text(encoding='utf-8')
-    assert all(digest in script.lower() for digest in password)
+    # The script installs cffi and cryptography with --no-deps; the lock also pins cffi's pycparser
+    # so install_dependencies --role password is a complete closure.
+    assert all(digest in script.lower() for digest, pin in password.items() if not pin.startswith('pycparser=='))
+    assert any(pin.startswith('pycparser==') for pin in password.values())
     assert '$wheel.Sha256 -Network' in script
     view = lock_pins(ROOT / 'installer/locks/people-view-windows-x64.txt')
     assert set(view) == set(lock_pins(ROOT / 'requirements-faces-windows.txt'))
