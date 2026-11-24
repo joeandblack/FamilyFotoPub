@@ -294,6 +294,11 @@ def audit(manifest, payload_root):
         raise ValueError('Mac release audit failed:\n- ' + '\n- '.join(problems))
 
 
+# The line under the setup window's choices, about what the app itself fetches before installing.
+NOTICES = {'online': 'FamilyFoto Setup downloads a private Python 3.12 (PSF License) and the installer engine.',
+           'offline': 'This offline package includes a private Python 3.12 (PSF License) and the installer engine.'}
+
+
 def descriptor(manifest, engine_zip, notices, mode):
     """bootstrap.json for the app: the bundled Python runtime doubles as the bootstrap Python."""
     python = manifest.components['runtime-python']
@@ -335,7 +340,7 @@ def main(argv=None):
     p.add_argument('--release', type=Path, help='output folder of `assemble`')
     p.add_argument('--engine', type=Path, help='engine ZIP from build_launcher.py engine')
     p.add_argument('--mode', choices=['online', 'offline'], default='online')
-    p.add_argument('--notices', default='FamilyFoto Setup downloads a private Python 3.12 (PSF License) and the installer engine.')
+    p.add_argument('--notices', help='default: the notice for --mode (NOTICES)')
     p.add_argument('--output', type=Path)
     a = p.parse_args(argv)
     if a.command == 'assemble':
@@ -347,7 +352,7 @@ def main(argv=None):
         audit(manifest, a.release / 'payload')
         print('Mac release audit passed:', manifest.digest)
     elif a.command == 'descriptor':
-        a.output.write_text(json.dumps(descriptor(manifest, a.engine, a.notices, a.mode), indent=1) + '\n')
+        a.output.write_text(json.dumps(descriptor(manifest, a.engine, a.notices or NOTICES[a.mode], a.mode), indent=1) + '\n')
     else:
         bundle(a.release, a.engine, a.output)
 
