@@ -58,6 +58,8 @@ installers (FamilyFotoSetup.dmg, FamilyFotoSetup.exe) and their payloads. The of
 bundle are built only as internal test vehicles: they run the same installation with the temp
 folder already filled. Known gaps, not investigated yet:
 - the setup cache is not removed after a successful setup yet (about 0.9 to 1.3 GB stays behind);
+- setup runs pip with `--isolated`, so a proxy set only in pip's own configuration is not used
+  (an `HTTPS_PROXY` environment variable still is);
 - for a later offline release: rule 4 makes an offline installation need the internet for those
   components; Python libraries go straight to PyPI (pip's own cache aside) instead of checking
   the temp folder first; and the Windows offline test vehicle is a folder (the bundle and its
