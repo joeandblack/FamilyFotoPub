@@ -204,3 +204,41 @@ def test_unconfigured_destination_blocks_upload_before_staging(monkeypatch):
 
 def test_source_selection_allowed_before_storage_enrollment(tmp_path):
     assert source_folder({'destination':{}},str(tmp_path))==tmp_path.resolve()
+
+
+@pytest.mark.parametrize('marker,expected',[
+    ('live', 'belongs to the FamilyFoto library at'),
+    ('gone', 'which no longer exists. If that library is gone, delete the marker'),
+    ('unreadable', 'marks this folder as holding a FamilyFoto library'),
+])
+def test_marker_beside_destination_is_refused_and_named(setup,tmp_path,marker,expected):
+    config,path,db=setup;before=path.read_bytes()
+    disk=tmp_path/'disk';disk.mkdir();new=disk/'chosen';new.mkdir()
+    other=disk/'other-library'/'media'
+    if marker=='live':other.mkdir(parents=True)
+    content=b'not json' if marker=='unreadable' else json.dumps({'root':str(other),'library_id':'other'}).encode()
+    (disk/'.familyfoto-volume.json').write_bytes(content)
+    with pytest.raises(ValueError) as refused:sc.save(db,{**payload(config),'destination':str(new)})
+    message=str(refused.value)
+    assert expected in message and str(disk/'.familyfoto-volume.json') in message
+    assert str(new/'media') in message  # The way out that needs no deletion
+    if marker!='unreadable':assert str(other) in message
+    assert path.read_bytes()==before and (disk/'.familyfoto-volume.json').read_bytes()==content
+
+
+def test_suggested_folder_inside_the_new_folder_is_accepted(setup,tmp_path):
+    config,path,db=setup
+    disk=tmp_path/'disk';disk.mkdir();new=disk/'chosen';new.mkdir()
+    (disk/'.familyfoto-volume.json').write_text(json.dumps({'root':str(disk/'gone'),'library_id':'other'}))
+    sc.save(db,{**payload(config),'destination':str(new/'media')})
+    assert json.loads(path.read_text())['destination']['root']==str(new/'media')
+    assert (disk/'.familyfoto-volume.json').exists()
+
+
+def test_installer_enrollment_gives_the_same_named_refusal(tmp_path):
+    import importlib.util
+    spec=importlib.util.spec_from_file_location('installer_configure',Path(__file__).resolve().parents[1]/'installer'/'configure.py')
+    configure=importlib.util.module_from_spec(spec);spec.loader.exec_module(configure)
+    disk=tmp_path/'disk';disk.mkdir();(disk/'.familyfoto-volume.json').write_text(json.dumps({'root':str(disk/'gone')}))
+    with pytest.raises(SystemExit,match='which no longer exists'):
+        configure.enroll_storage(str(tmp_path),str(disk/'chosen'))

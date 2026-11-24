@@ -34,8 +34,12 @@ start server-folder imports or change these settings.
   (see [Operations](OPERATIONS.md#removable-disks)); a share is checked by path and file
   checksums only. No share credentials, drive mappings or permissions are changed. Directory
   links, device paths and overlapping source/destination trees are refused.
-- **Destination.** Must be on a locally identifiable disk, in a new or empty folder with no
-  existing library marker, and separate from the application folder. Once any import, catalog
+- **Destination.** Must be on a locally identifiable disk, in a new or empty folder, and separate
+  from the application folder. A library keeps its marker, `.familyfoto-volume.json`, in the
+  folder *above* its media folder, so a destination is refused when that parent folder already
+  has one. The message names the marker and its library, and says when that library's folder no
+  longer exists (a leftover, which you may delete). A folder inside a new empty folder, such as
+  `D:\Photos\media`, avoids it. Once any import, catalog
   record or active upload exists, the destination is locked; moving the library needs a
   verified migration, not a path change.
 - Each import keeps its source path and volume identity. Resume requires that original source,
