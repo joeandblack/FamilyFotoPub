@@ -1,10 +1,13 @@
 """Bare Windows copies for an admitted, immutable source and new destination.
 
-No content checks or per-file filesystem admission here. The caller owns path
+No content checks here. A no-follow destination check rejects existing entries;
+it is not atomic with the native copy. The caller owns path
 admission, capacity, cancellation and the separate verification/publication pass.
 """
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 import ctypes
+import errno
+import os
 from ctypes import wintypes as w
 from functools import lru_cache
 
@@ -27,11 +30,18 @@ def copy_api():
 
 
 def copy_file(source, target, **kwargs):
+    try:
+        os.lstat(target)
+    except FileNotFoundError:
+        pass
+    else:
+        raise FileExistsError(errno.EEXIST, 'Copy destination already exists', str(target))
     parameters = Parameters()
     parameters.size = ctypes.sizeof(parameters)
     # FAIL_IF_EXISTS (0x1) | COPY_SYMLINK (0x800) | SKIP_ALTERNATE_STREAMS (0x8000).
-    # RESTARTABLE (0x2) is not set. An unexpected link is copied, not followed;
-    # the separate destination verification rejects links before publication.
+    # RESTARTABLE (0x2) is not set. COPY_SYMLINK applies to the source link;
+    # it does not prevent following a destination link planted after lstat.
+    # Keep the destination private: this check does not close that race.
     parameters.flags = 0x8801
     result = copy_api()(str(source), str(target), ctypes.byref(parameters))
     if result < 0:

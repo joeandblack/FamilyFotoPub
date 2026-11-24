@@ -180,8 +180,14 @@ not enumerate the whole source tree again.
 On Windows, directory creation and file copying both belong to the
 `media-transfer` phase. The worker validates inventory names/parents in memory,
 creates destination directories, then uses CopyFile2 with **16 threads** and at
-most **32 queued/in-flight futures**. Copy flags prohibit overwrite and skip
-alternate data streams. Unexpected links are not followed as ordinary media;
+most **32 queued/in-flight futures**. Before each copy, a no-follow `lstat` check
+refuses any existing destination entry, including dangling symlinks. The native
+fail-if-exists flag remains enabled and alternate data streams are skipped.
+The metadata check does not read file contents and is not atomic with CopyFile2.
+A program could plant a destination link after the check and redirect a write;
+the source-link copy flag does not prevent this. Keep the destination private and
+unmodified: concurrent tampering is outside this protection, and later verification
+cannot undo redirected writes. Unexpected source links are copied as links;
 destination verification prevents their publication as a valid recovery point.
 
 The fast Windows loop copies file contents without hashing each file immediately
