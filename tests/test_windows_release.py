@@ -77,7 +77,11 @@ def test_assembled_release_passes_audit_and_names_both_setups(recipe):
     assert {'application', *wr.NATIVE, 'lock-core', 'lock-password', 'lock-people-view'} <= ids
     # Releases ship no wheels: setup installs every lock from PyPI.
     assert not any(c['bundle_path'].endswith('.whl') for c in manifest.components.values())
-    assert json.loads((out / 'assets.json').read_text())['runtime--python.3.12.10.nupkg'] == 'runtime/python.3.12.10.nupkg'
+    assets = json.loads((out / 'assets.json').read_text())
+    assert assets['windows--runtime--python.3.12.10.nupkg'] == 'windows/runtime/python.3.12.10.nupkg'
+    # One GitHub release holds both platforms: every Windows asset is windows--… (models aside).
+    assert all(name.startswith(('windows--', 'models--')) for name in assets)
+    assert all(c['url'].endswith('/' + c['bundle_path'].replace('/', '--')) for c in manifest.components.values())
 
 
 @pytest.mark.parametrize('problem,expected', [
@@ -110,12 +114,13 @@ def test_descriptor_and_offline_bundle(recipe, tmp_path):
     with zipfile.ZipFile(engine, 'w') as archive:
         archive.writestr('installer-manifest.json', (out / 'manifest.json').read_bytes())
     desc = wr.descriptor(manifest, engine, 'notices', 'offline')
-    assert desc['python']['bundle_path'] == 'runtime/python.3.12.10.nupkg'
-    assert desc['engine']['url'].endswith('/v0.1.0-beta.2/engine.zip') and desc['manifest_sha256'] == manifest.digest
+    assert desc['python']['bundle_path'] == 'windows/runtime/python.3.12.10.nupkg'
+    assert desc['python']['url'].endswith('/v0.1.0-beta.2/windows--runtime--python.3.12.10.nupkg')
+    assert desc['engine']['url'].endswith('/v0.1.0-beta.2/engine-windows.zip') and desc['manifest_sha256'] == manifest.digest
     wr.bundle(out, engine, tmp_path / 'offline')
     offline = tmp_path / 'offline'
     assert (offline / 'COMPLETE').read_text().strip() == manifest.digest
-    assert (offline / 'bootstrap/engine.zip').is_file() and (offline / 'runtime/python.3.12.10.nupkg').is_file()
+    assert (offline / 'bootstrap/engine.zip').is_file() and (offline / 'windows/runtime/python.3.12.10.nupkg').is_file()
 
 
 def test_real_setup_pins_and_windows_locks_agree():
@@ -163,3 +168,31 @@ def test_recipe_with_provider_locks_is_refused(recipe):
     path.write_text(json.dumps(doc))
     with pytest.raises(ValueError, match='installs them from PyPI'):
         wr.assemble(path, out)
+
+
+def test_windows_and_mac_asset_names_never_collide(recipe, tmp_path, monkeypatch):
+    """Both platforms publish into one release; only the byte-identical models may share a name."""
+    from tests.test_mac_release import recipe as mac_recipe
+    from installer.macos import build_release as mr
+    path, out = recipe
+    windows = set(json.loads((wr.assemble(path, out) and out / 'assets.json').read_text()))
+    mac_out = tmp_path / 'mac'
+    mac_out.mkdir()
+    mr.assemble(mac_recipe(mac_out, monkeypatch), mac_out / 'release')
+    mac = set(json.loads((mac_out / 'release/assets.json').read_text()))
+    assert not {n for n in windows & mac if not n.startswith('models--')}
+    assert wr.ENGINE_ASSET != 'engine.zip'
+
+
+def test_audit_refuses_an_unprefixed_windows_asset(recipe):
+    path, out = recipe
+    manifest = wr.assemble(path, out)
+    raw = json.loads((out / 'manifest.json').read_bytes())
+    item = next(c for c in raw['components'] if c['id'] == 'application')
+    (out / 'payload' / 'application').mkdir(parents=True)
+    (out / 'payload' / 'windows/application/application.zip').rename(out / 'payload/application/application.zip')
+    item['bundle_path'] = 'application/application.zip'
+    data = json.dumps(raw).encode()
+    from installer.common.manifest import Manifest, sha256 as digest
+    with pytest.raises(ValueError, match='must start with windows/'):
+        wr.audit(Manifest(data, digest(data)), out / 'payload')
