@@ -1,6 +1,8 @@
 """Offline release metadata and core schema compatibility; never opens a database."""
 import argparse
+import functools
 import json
+import re
 from pathlib import Path
 import tomllib
 
@@ -26,6 +28,54 @@ def display_version(root=None):
         return metadata(root)['application_version']
     except FileNotFoundError:
         return 'unknown'
+
+
+def _checkout_head(root):
+    """(commit, branch) of a Git checkout, read from .git without running git.
+
+    Running git on a Mac without Command Line Tools opens an install prompt, so this reads
+    HEAD and the ref files directly. A worktree's .git is a file naming its git directory."""
+    git = root / '.git'
+    if git.is_file():
+        git = (root / git.read_text(encoding='utf-8').split('gitdir:', 1)[1].strip()).resolve()
+    head = (git / 'HEAD').read_text(encoding='utf-8').strip()
+    if not head.startswith('ref: '):
+        return head, ''
+    ref = head[5:].strip()
+    common = git / (git / 'commondir').read_text(encoding='utf-8').strip() if (git / 'commondir').is_file() else git
+    branch = ref.removeprefix('refs/heads/')
+    for folder in (git, common):
+        if (folder / ref).is_file():
+            return (folder / ref).read_text(encoding='utf-8').strip(), branch
+    packed = common / 'packed-refs'
+    for line in packed.read_text(encoding='utf-8').splitlines() if packed.is_file() else ():
+        if line.endswith(' ' + ref):
+            return line.split(' ', 1)[0], branch
+    return '', branch
+
+
+@functools.cache
+def build_info(root=None):
+    """What code this server runs, for the sidebar label: version, branch and commit.
+
+    Cached from its first call, which create_app makes at server start: changing the files
+    without a restart doesn't change the running code, so it doesn't change the label either. A release folder gives its
+    manifest's commit (and dirty flag) without hashing every file; anything unreadable gives ''."""
+    root = Path(root) if root is not None else Path(__file__).resolve().parents[1]
+    info = {'version': display_version(root), 'commit': '', 'branch': '', 'dirty': False}
+    try:
+        if (root / '.git').exists():
+            info['commit'], info['branch'] = _checkout_head(root)
+        elif (root / 'release-manifest.json').is_file():
+            manifest = json.loads((root / 'release-manifest.json').read_text(encoding='utf-8'))
+            info['commit'], info['dirty'] = manifest.get('source_commit', ''), manifest.get('dirty') is True
+    except (OSError, ValueError, IndexError, AttributeError):
+        pass
+    if not isinstance(info['commit'], str) or not re.fullmatch('[0-9a-f]{40}', info['commit']):
+        info['commit'] = ''
+    if not re.fullmatch(r'[\w./-]{0,200}', info['branch']):
+        info['branch'] = ''
+    return info
 
 
 def schema_compatibility(applied, info=None):

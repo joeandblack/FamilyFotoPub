@@ -1,5 +1,6 @@
 import './session-activity.mjs';
 import {backupActive} from './backup-state.mjs';
+import {buildLabel,buildTitle} from './build-label.mjs';
 import {isAudio} from './audio-media.mjs';
 import {showNotice} from './confirm-dialog.mjs';
 import {createPeopleStartup} from '../face_detect/web/people-startup.mjs';
@@ -359,4 +360,5 @@ const manualImport=setupManualImport({api,notice,refresh:poll});
 const uploadsView=setupUploadsView({api,notice,refresh:poll});
 historyContainer.addEventListener('pipeline-status',event=>manualImport.setActivity(event.detail));
 lucide.createIcons();
+api('/api/version').then(build=>{const label=$('buildLabel');label.textContent=buildLabel(build);label.title=buildTitle(build);label.hidden=!label.textContent;}).catch(()=>{});
 api('/api/me').then(async user=>{document.body.dataset.role=user.role;document.body.dataset.user=user.username;setupAccountSecurity({api,user,notice});setupUserManagement({api,user,notice});previewNav.hidden=!user.capabilities?.people_preview;if(view==='uploads'&&user.role==='guest')view='all';if(view==='people-preview'&&!user.capabilities?.people_preview)view='all';if(['people','faces'].includes(view))view=previewNav.hidden?'all':'people-preview';if(user.role==='admin'){try{const settings=await api('/api/storage/settings');manualImport.setDefault(settings.latest_source||settings.source);manualImport.setStorage(settings);}catch(e){notice(e.message);}}showView();poll();setInterval(poll,5000);}).catch(e=>notice(e.message));

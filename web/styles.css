@@ -482,8 +482,12 @@ dialog.conversion-review{height:fit-content;max-height:90dvh}
 
 /* Native disclosures provide keyboard activation and announce expanded state. */
 #storage > .settings-section{border:0;border-top:1px solid #bdc9c1;border-radius:0;background:transparent;padding:16px 0;margin:0}
-#storage > .settings-section > summary{display:list-item;list-style:disclosure-closed inside;cursor:pointer;font-size:16px;font-weight:600;color:inherit}
+#storage > .settings-section > summary{display:list-item;padding:0;list-style:disclosure-closed inside;cursor:pointer;font-size:16px;font-weight:600;color:inherit}
 #storage > .settings-section[open] > summary{list-style-type:disclosure-open;margin-bottom:16px}
 #storage > .settings-section > summary:focus-visible{outline:2px solid #41644e;outline-offset:4px}
 #diskStatus > dl{padding:16px;background:#fff;border:1px solid #dce4df;border-radius:9px}
 #userManagement .user-form input:not([type=checkbox]){box-sizing:border-box;min-height:38px;padding:8px 10px;border:1px solid #cfd9d2;border-radius:5px;max-width:100%}
+
+/* Which code this server runs: version, branch and commit, under the name. */
+.build-label{margin:4px 0 0;font-size:11px;color:#8a968e;font-family:ui-monospace,Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:700px){.build-label{display:none}}

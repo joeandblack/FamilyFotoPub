@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from .config import ROOT, load_config
 from .database import migrate, close_pools
 from .auth import accounts
-from .release import display_version
+from .release import build_info, display_version
 
 
 @asynccontextmanager
@@ -50,6 +50,7 @@ def create_app():
     from .backup.admin_api import router as backup_router
 
     app=FastAPI(title='FamilyFoto',version=display_version(),lifespan=lifespan)
+    build_info()  # Snapshot the running code now, before any request; files may change before the first page load.
     from fastapi.exceptions import RequestValidationError
     app.add_exception_handler(RequestValidationError, validation_failed)
     app.include_router(photo_duplicate_router)

@@ -8,6 +8,11 @@ from .database import connection
 
 router=APIRouter()
 
+@router.get('/api/version')
+def version():
+    from .release import build_info
+    return build_info()
+
 @router.get('/api/status')
 def status():
     config=load_config()
