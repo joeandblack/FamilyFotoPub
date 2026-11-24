@@ -50,8 +50,10 @@ the automatic checks; everything marked **(manual)** needs a person at the VM.
     checksums. Build releases on a dedicated, clean build Mac (no extra taps or formulas) so they
     can be rebuilt.
 12. Publish on the public release repository named by `RELEASE_BASE` (immutable releases on):
-    every file in `release/assets.json` under its asset name, `engine.zip`, both DMGs, the sources,
-    and a `SHA256SUMS` file. Check every asset downloads without signing in.
+    every file in `release/assets.json` under its asset name, `engine.zip`, the online
+    `FamilyFotoSetup.dmg`, the sources, and a `SHA256SUMS` file. Check every asset downloads without
+    signing in. v0.1.0-beta releases are online-only (see "Installation guidelines" in
+    installer/README.md): the offline DMG from step 10 is built only to test in the VMs, not published.
 
 ## 2. Prepare the VMs
 

@@ -19,6 +19,42 @@ current directory. This folder is not a standalone distribution: ship it with th
 application. Place that whole package in the desired local installation folder.
 Source and destination media folders are chosen later in Imports.
 
+## Installation guidelines
+
+These apply to both platforms' installers (FamilyFoto Setup.app and FamilyFotoSetup.exe), for a
+new library and for a restore from a backup alike.
+
+1. **Online installation.** Setup installs FamilyFoto's own code, then each third-party component
+   it needs (Python, PostgreSQL, FFmpeg, Python libraries, and, if chosen, People). For each
+   component it first looks in the installation's temp folder and uses the file there if it is
+   present and correct; otherwise it downloads it and stores it there. The temp folder is kept
+   until setup succeeds, so an interrupted installation resumes without downloading again.
+2. **Offline installation.** One file (a zip, dmg or msi/exe) carries FamilyFoto and the
+   third-party binaries it needs. Opening it fills the temp folder, then the online installation
+   runs as above and finds everything it needs there. Third-party *source code* is not needed to
+   install: it is published beside the release for its licences.
+3. **Checksums.** Every component, packaged or downloaded, is checked against the SHA-256 that
+   the release manifest records for it before it is used. Downloads come only from the pinned
+   official URLs; a mismatch stops setup and nothing is used.
+4. **Components FamilyFoto cannot redistribute** are downloaded from their official source during
+   setup, also during an offline installation, and checked against a pinned SHA-256. Today these
+   are FFmpeg on Windows (gyan.dev) and People's Python libraries on both platforms (PyPI).
+5. **Optional features** such as People are downloaded only if chosen, and only after their terms
+   are accepted.
+
+The shared engine follows 1 to 3 for every component in the release manifest
+(`installer/common/acquire.py`: the temp folder first, then an offline bundle, then a download;
+offline mode refuses to download). Rule 4's components are fetched by the step that installs
+them (`installer/windows/install-ffmpeg.ps1`, `face_detect/cli/setup.py`).
+
+**Current release: online installation only.** v0.1.0-beta releases publish the online
+installers (FamilyFotoSetup.dmg, FamilyFotoSetup.exe) and their payloads. The offline DMG and
+bundle are built only as internal test vehicles: they run the same installation with the temp
+folder already filled. Known gaps for a later offline release, not investigated yet:
+- rule 4 makes an offline installation need the internet for those components;
+- People's libraries go straight to PyPI (pip's own cache aside) instead of checking the temp
+  folder first.
+
 ## Contents and Boundaries
 
 - `windows/install.ps1`: master Windows Plan/Install/Resume/Verify entry point.
