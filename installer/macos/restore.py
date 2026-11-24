@@ -208,13 +208,8 @@ def main(argv=None):
     print(f"The certificate covers {', '.join(result['certificate_names'])}. A device that trusted the old "
           f"computer trusts this one when it uses one of those names. Any other device needs "
           f"{result['certificate_authority']} trusted once.")
-    people = result.get('people')
-    if isinstance(people, dict):
-        check = people.get('library_check') or {}
-        print('People: ' + ('set up, and editable.' if check.get('passed') else
-                            f"installed, but the library check did not pass ({check.get('reason')}). People can be viewed, not edited."))
-    else:
-        print('People: not installed. The saved people can be viewed; install People later to edit them.')
+    from app.migration.move_in import people_summary
+    print(people_summary(result.get('people')))
     print('Keep the backup until a new backup of this library has been made and verified.')
     print(json.dumps({'report': str(ROOT / 'restore/MOVE-IN-REPORT.json')}))
     return 0

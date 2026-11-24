@@ -138,6 +138,15 @@ def lock_pins(path):
     return pins
 
 
+def index_lock_problems(item, path):
+    """A lock installed from PyPI must pin every requirement by hash, since nothing of it ships."""
+    if not item.get('wheel_index'):
+        return []
+    unpinned = [line.split()[0] for line in Path(path).read_text(encoding='utf-8').splitlines()
+                if line.strip() and not line.startswith('#') and '--hash=sha256:' not in line]
+    return [f"{item['id']}: installed from PyPI, so every requirement needs a --hash ({', '.join(unpinned)})"] if unpinned else []
+
+
 def runtime_minimum(archive):
     """(version, entry name) of the newest macOS any Mach-O in a runtime ZIP needs.
 
@@ -272,7 +281,9 @@ def audit(manifest, payload_root):
             problems.append(f"{item['id']}: no license inventory IDs")
         if zipfile.is_zipfile(path) and item['installed_size_estimate'] < uncompressed(path):
             problems.append(f"{item['id']}: installed_size_estimate is below the real uncompressed size")
-        if item.get('lock_role'):
+        if item.get('lock_role') and item.get('wheel_index'):
+            problems += index_lock_problems(item, path)
+        elif item.get('lock_role'):
             pinned.update(lock_pins(path))
         if item.get('runtime_role') in ('postgres', 'ffmpeg'):
             info = json.loads(zipfile.ZipFile(path).read('payload-info.json'))

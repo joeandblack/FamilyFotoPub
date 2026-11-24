@@ -27,7 +27,8 @@ FamilyFoto Setup installs the FamilyFoto application and, inside its installatio
 - FFmpeg, which converts and reads videos (on Windows, setup downloads it from www.gyan.dev
   during installation; the Windows release does not include it),
 - the setup window,
-- and, only if you include People, face-recognition libraries and face models (section 4).
+- and, only if you include People, face-recognition libraries and face models (section 4;
+  setup downloads those libraries during installation).
 
 Each component remains under its own licence. The release manifest lists every component with
 its licence, and the licence texts are installed with the components (on the Mac, for PostgreSQL
@@ -57,6 +58,11 @@ build recipes used. The Windows release contains no FFmpeg; gyan.dev provides it
 
 People is installed only if you include it and accept its model terms in the setup window.
 Without People, FamilyFoto works fully, and people saved in a restored library stay viewable.
+
+FamilyFoto does not distribute People's Python libraries (among them OpenCV, ONNX Runtime and
+PyTorch, each under its own licence). If you include People, setup downloads them from the Python
+Package Index (https://pypi.org) during installation and checks every file against the checksum
+recorded for this release.
 
 The face models People uses are not covered by FamilyFoto's licence:
 - InsightFace "buffalo_l" models: provided by InsightFace for NON-COMMERCIAL RESEARCH USE ONLY.

@@ -525,3 +525,37 @@ def test_release_audit_requires_complete_payloads(tmp_path):
     (tmp_path / items[0]['bundle_path']).write_bytes(b'tamper')
     with pytest.raises(ValueError, match='differs'):
         audit_windows_release(manifest(doc), tmp_path)
+
+
+def test_people_provider_lock_installs_from_pypi(tmp_path, monkeypatch):
+    core_data, people_data = b'core==1 --hash=sha256:' + b'a'*64, b'onnx==1 --hash=sha256:' + b'b'*64
+    core = component('lock-core', core_data, lock_role='core')
+    core['bundle_path'] = 'locks/core.txt'
+    people = component('lock-insightface', people_data, lock_role='insightface', wheel_index='https://pypi.org/simple')
+    people['bundle_path'] = 'locks/insightface.txt'
+    doc = document([core, people])
+    doc['features'] = {'core': ['lock-core'], 'people': ['lock-insightface']}
+    release = manifest(doc)
+    data = {'lock-core': core_data, 'lock-insightface': people_data}
+    prepare(release, platform='windows-x64', features=['core', 'people'], agreement=b'terms',
+            accepted_digest=digest(b'terms'), directory=tmp_path, mode='online',
+            opener=lambda url: io.BytesIO(data[url.rsplit('/', 1)[1]]), stream=io.StringIO())
+    receipt = materialize(release, tmp_path / 'prepared.json', 'windows-x64')
+    assert receipt['locks']['insightface']['index'] == 'https://pypi.org/simple'
+    monkeypatch.setenv('FAMILYFOTO_PAYLOAD_RECEIPT', str(tmp_path / 'prepared.json'))
+    flags = pip_arguments('insightface')
+    # From PyPI, every file pinned by the lock; never the bundled wheelhouse.
+    assert flags[:3] == ['--isolated', '--index-url', 'https://pypi.org/simple']
+    assert {'--require-hashes', '--only-binary=:all:'} <= set(flags) and '--no-index' not in flags
+    assert '--no-index' in pip_arguments('core')
+
+
+@pytest.mark.parametrize('role, index', [('core', 'https://pypi.org/simple'), ('people-view', 'https://pypi.org/simple'),
+                                         ('insightface', 'https://example.com/simple'), ('facenet', 'http://pypi.org/simple')])
+def test_only_people_provider_locks_may_name_pypi(role, index):
+    item = component('lock-' + role, lock_role=role, wheel_index=index)
+    item['bundle_path'] = f'locks/{role}.txt'
+    doc = document([item])
+    doc['features'] = {'core': [item['id']]}
+    with pytest.raises(ValueError, match='only from PyPI'):
+        manifest(doc)

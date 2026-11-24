@@ -522,3 +522,25 @@ def test_once_the_backup_is_no_longer_read_a_restore_carries_on_without_it_or_it
     import shutil
     shutil.rmtree(world.plan['backup'])
     assert again.run(None, confirm=lambda summary: pytest.fail('Already switched on'))['state'] == 'done'
+
+
+@pytest.mark.parametrize('people, expected', [
+    ('not installed', 'People is not installed'),
+    ({'library_check': {'passed': True}}, 'People is set up, and editable.'),
+    ({'library_check': 'no-stored-faces'}, 'no saved faces yet'),
+    ({'library_check': {'passed': False, 'reason': 'unmatched'}}, 'did not pass (unmatched)'),
+    ({'library_check': 'skipped'}, 'runs at the first Discover people'),
+    ({'library_check': None}, 'runs at the first Discover people'),
+])
+def test_people_summary_covers_every_people_result(people, expected):
+    # A restore with People on but no faces records 'no-stored-faces' (a string), not a check
+    # record; the summary must not assume a record (it crashed restore.py after a finished restore).
+    assert expected in move_in.people_summary(people)
+
+
+def test_both_restore_scripts_use_the_shared_people_summary():
+    root = Path(__file__).resolve().parents[1]
+    for script in ('installer/macos/restore.py', 'installer/windows/restore.py'):
+        text = (root / script).read_text(encoding='utf-8')
+        assert 'people_summary(result.get(\'people\'))' in text
+        assert "check.get('passed')" not in text

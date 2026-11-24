@@ -59,6 +59,26 @@ WARNING = ('Is your old FamilyFoto still in use?\n'
            'Stop FamilyFoto on the old computer for good before you continue.')
 
 
+def people_summary(people):
+    """One sentence on People after a restore, from the move-in report's `people` value.
+
+    `people` is 'not installed', or {'library_check': ...} where the check is a result record
+    (with `passed`), 'no-stored-faces' (People was on but had found no faces yet: nothing to
+    check, and the first scan may write), 'skipped', or None when its report was unreadable."""
+    if not isinstance(people, dict):
+        return 'People is not installed. The saved people can be viewed; install People later to edit them.'
+    check = people.get('library_check')
+    if isinstance(check, dict) and check.get('passed'):
+        return 'People is set up, and editable.'
+    if check == 'no-stored-faces':
+        return 'People is set up, and editable. The library had no saved faces yet, so there was nothing to check.'
+    if isinstance(check, dict):
+        return (f"People is installed, but its check of the restored faces did not pass ({check.get('reason')}). "
+                'People can be viewed, not edited.')
+    return ('People is installed. Its check of the restored faces runs at the first Discover people; '
+            'until it passes, People can be viewed, not edited.')
+
+
 @dataclass
 class Installation:
     """What the platform's installer knows about this installation."""

@@ -48,7 +48,7 @@ if str(ROOT) not in sys.path:
 
 from installer.common.bundle import build as build_bundle  # noqa: E402
 from installer.common.manifest import RELEASE_BASE, SETUP_ASSETS, Manifest, safe_relative, sha256  # noqa: E402
-from installer.macos.build_release import (COPYLEFT, MODELS, asset_name, file_sha256, lock_pins,  # noqa: E402
+from installer.macos.build_release import (COPYLEFT, MODELS, asset_name, file_sha256, index_lock_problems, lock_pins,  # noqa: E402
                                            model_digest, normalized, uncompressed, wheel_license)
 from installer.windows.build_shared import audit_windows_release  # noqa: E402
 
@@ -200,7 +200,9 @@ def audit(manifest, payload_root):
             continue  # already reported by the shared audit
         if zipfile.is_zipfile(path) and item['installed_size_estimate'] < uncompressed(path):
             problems.append(f"{item['id']}: installed_size_estimate is below the real uncompressed size")
-        if item.get('lock_role'):
+        if item.get('lock_role') and item.get('wheel_index'):
+            problems += index_lock_problems(item, path)
+        elif item.get('lock_role'):
             pinned.update(lock_pins(path))
     shipped = {c['sha256'] for c in manifest.components.values() if c['bundle_path'].endswith('.whl')}
     problems += [f'locked wheel {pin} is not in the release' for digest, pin in sorted(pinned.items()) if digest not in shipped]
@@ -208,6 +210,8 @@ def audit(manifest, payload_root):
         for item in manifest.components.values():
             if item.get('model_provider') and item['sha256'] != model_digest(item['model_provider']):
                 problems.append(f"the {item['model_provider']} model is not the file setup expects (research-models.json)")
+            if item.get('lock_role') in PEOPLE_LOCKS and not item.get('wheel_index'):
+                problems.append(f"{item['id']}: People's provider wheels must install from PyPI, not ship")
     problems += missing_sources(manifest, payload_root)
     if problems:
         raise ValueError('Windows release audit failed:\n- ' + '\n- '.join(problems))

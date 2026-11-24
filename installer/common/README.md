@@ -69,6 +69,13 @@ credentials, media or backups. The release pin never follows a mutable Git branc
 Wheels retain their actual `.whl` basenames in `bundle_path`. A lock component adds
 `lock_role`: `core`, `password`, `people-view`, `insightface` or `facenet`. Manifest
 validation rejects unknown or duplicate roles and roles on non-`.txt` payloads.
+Older manifests may contain provider locks (`insightface`, `facenet`) carrying `"wheel_index": "https://pypi.org/simple"`
+and no provider wheels: opencv-python bundles a GPL FFmpeg whose sources FamilyFoto can't
+publish, so setup installs them from PyPI instead, every file pinned by the lock's `--hash`. Only
+those two roles may name an index, and only PyPI; materialize copies it into the receipt and
+`pip_arguments` then returns `--index-url https://pypi.org/simple --require-hashes
+--only-binary=:all:` for that role. Installing People therefore needs the internet, also from an
+offline bundle.
 A bundled native program adds `runtime_role`: `python`, `postgres` or `ffmpeg`, on a
 link-free `.zip`; unknown or duplicate roles are rejected. Complete closures are
 installed with no index, binary wheels only and required hashes. The checked-in
@@ -266,7 +273,7 @@ small launchers. `payload-info.json` records each formula's version, license fil
 only when the installed version matches the formula, its source URL and checksum.
 
 `build_release.py` assembles a Mac release from a recipe (application, the four runtime
-ZIPs, the five locks with a wheelhouse, both models): exact `installed_size_estimate` from
+ZIPs, the three Core locks with their wheelhouse, both models): exact `installed_size_estimate` from
 uncompressed sizes, wheels placed once, flat asset names under `RELEASE_BASE`. Its `audit`
 refuses a release that lacks a runtime, lock, wheel or model; whose models are not the files
 `face_detect` expects; whose sizes, bytes or agreement differ; with empty license IDs; with

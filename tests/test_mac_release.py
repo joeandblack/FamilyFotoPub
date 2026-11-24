@@ -459,3 +459,14 @@ def test_audit_refuses_a_program_newer_than_minimum_os_and_unlicensed_formulas(t
         build_release.audit(manifest, payload)
     assert 'runtime-ffmpeg: lib/libnew.dylib needs macOS 28.0, newer than minimum_os 27.0' in str(error.value)
     assert 'runtime-postgres: quiet has no license file and no SPDX license' in str(error.value)
+
+
+def test_legacy_index_lock_must_pin_every_file(tmp_path):
+    # Compatibility for older indexed receipts; new releases carry no provider locks.
+    lock = tmp_path / 'insightface.txt'
+    item = {'id': 'lock-insightface', 'wheel_index': 'https://pypi.org/simple'}
+    lock.write_text('pkg==1.0 --hash=sha256:' + '0' * 64 + '\n')
+    assert build_release.index_lock_problems(item, lock) == []
+    lock.write_text(lock.read_text() + 'unpinned-pkg==1.0\n')
+    assert build_release.index_lock_problems(item, lock) == [
+        'lock-insightface: installed from PyPI, so every requirement needs a --hash (unpinned-pkg==1.0)']
