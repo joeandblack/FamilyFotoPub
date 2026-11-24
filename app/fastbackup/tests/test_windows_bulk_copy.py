@@ -19,7 +19,7 @@ def test_primitive_checks_destination_without_reading_source(tmp_path, monkeypat
     assert calls == [(str(tmp_path / 'not-inspected-source'), str(tmp_path / 'not-inspected-target'), 0x8801)]
 
 
-@pytest.mark.parametrize('kind', ['file', 'directory', 'dangling-link'])
+@pytest.mark.parametrize('kind', ['file', 'directory', 'entry-reported-by-lstat'])
 def test_existing_entry_refused_before_native_copy(tmp_path, monkeypatch, kind):
     from app.fastbackup import windows_bulk_copy as bulk
     target = tmp_path / 'target'
@@ -28,7 +28,7 @@ def test_existing_entry_refused_before_native_copy(tmp_path, monkeypatch, kind):
     elif kind == 'directory':
         target.mkdir()
     else:
-        # Cover no-follow rejection even on Windows sessions without link privileges.
+        # Exercise a reported entry without creating a link; the native test covers real links.
         monkeypatch.setattr(bulk.os, 'lstat', lambda path: object())
     def forbidden():
         pytest.fail('Native copy must not be called for an existing entry')
