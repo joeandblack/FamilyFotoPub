@@ -1,4 +1,5 @@
 import json
+import pytest
 from pathlib import Path
 from app import release
 
@@ -65,3 +66,19 @@ def test_unreadable_or_odd_values_give_blanks(tmp_path):
     bare = tmp_path / 'nothing'
     bare.mkdir()
     assert info(bare) == {'version': 'unknown', 'commit': '', 'branch': '', 'dirty': False}
+
+
+def test_label_is_the_code_at_server_start_not_files_changed_before_the_first_request(monkeypatch):
+    from app.api import create_app
+    from app.system_api import version
+    if not (release.Path(release.__file__).resolve().parents[1] / '.git').exists():
+        pytest.skip('Runs from a Git checkout')
+    disk = {'head': A}           # What .git says right now
+    monkeypatch.setattr(release, '_checkout_head', lambda root: (disk['head'], 'main'))
+    release.build_info.cache_clear()
+    try:
+        create_app()             # Server start: commit A is running
+        disk['head'] = B         # The checkout moves to B before anyone opens a page
+        assert version()['commit'] == A
+    finally:
+        release.build_info.cache_clear()

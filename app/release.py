@@ -58,8 +58,8 @@ def _checkout_head(root):
 def build_info(root=None):
     """What code this server runs, for the sidebar label: version, branch and commit.
 
-    Read once, at the first request after start: changing the files without a restart doesn't
-    change the running code, so it doesn't change the label either. A release folder gives its
+    Cached from its first call, which create_app makes at server start: changing the files
+    without a restart doesn't change the running code, so it doesn't change the label either. A release folder gives its
     manifest's commit (and dirty flag) without hashing every file; anything unreadable gives ''."""
     root = Path(root) if root is not None else Path(__file__).resolve().parents[1]
     info = {'version': display_version(root), 'commit': '', 'branch': '', 'dirty': False}
