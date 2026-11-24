@@ -432,6 +432,8 @@ function Show-Result([int]$code) {
             if ($result.url) { $state.Url = [string]$result.url + '/' }
             if ($result.certificate_authority) { $state.Authority = [string]$result.certificate_authority }
             $people = if ($result.people -is [string] -or -not $result.people) { 'People is not installed: the saved people can be viewed; install People later to edit them.' }
+                elseif ($result.people.library_check -is [string] -and $result.people.library_check -eq 'no-stored-faces') { 'People is set up, and can be edited. The library had no saved faces yet, so there was nothing to check.' }
+                elseif ($result.people.library_check -is [string] -or -not $result.people.library_check) { 'People is installed. Its check of the restored faces runs at the first Discover people; until it passes, they can be viewed, not edited.' }
                 elseif ($result.people.library_check.passed) { 'People is set up, and can be edited.' }
                 else { 'People is installed, but its check of the restored faces did not pass, so they can be viewed, not edited.' }
             $backupPassword.Text = ''
