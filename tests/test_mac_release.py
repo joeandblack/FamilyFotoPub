@@ -201,6 +201,19 @@ def test_assembled_release_passes_the_audit(tmp_path, monkeypatch):
     assert {'model-insightface', 'model-facenet', 'lock-insightface', 'lock-facenet'} <= people
 
 
+def test_mac_release_names_the_windows_setup_of_the_same_release(tmp_path, monkeypatch):
+    manifest, _ = assembled(tmp_path, monkeypatch)
+    assert manifest.document['windows_handover'] == {
+        'release_id': 'test-1',
+        'setup_url': 'https://github.com/joeandblack/FamilyFotoPub/releases/download/test-1/FamilyFotoSetup.exe'}
+    (tmp_path / 'mac-only').mkdir()
+    path = recipe(tmp_path / 'mac-only', monkeypatch)
+    doc = json.loads(path.read_text())
+    doc['windows'] = False  # a Mac-only release names no Windows setup
+    path.write_text(json.dumps(doc))
+    assert 'windows_handover' not in build_release.assemble(path, tmp_path / 'mac-only/release').document
+
+
 def test_release_uses_the_repository_terms_unless_the_recipe_names_others(tmp_path, monkeypatch):
     path = recipe(tmp_path, monkeypatch)
     doc = json.loads(path.read_text())

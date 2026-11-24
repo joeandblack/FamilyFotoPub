@@ -12,6 +12,11 @@ LOCK_ROLES = ('core', 'password', 'people-view', 'insightface', 'facenet')
 RUNTIME_ROLES = ('python', 'postgres', 'ffmpeg', 'setup-window')
 RELEASE_BASE = 'https://github.com/joeandblack/FamilyFotoPub/releases/download'
 SETUP_ASSETS = {'windows-x64': 'FamilyFotoSetup.exe', 'macos-arm64': 'FamilyFotoSetup.dmg'}
+# Optional manifest key -> (the release's own platform, the platform whose setup it names).
+# A Windows release names the Mac DMG (restore-on-mac); a Mac release names the Windows EXE
+# (restore-on-windows). A release's own link is its setup_url.
+CROSS_HANDOVER = {'mac_handover': ('windows-x64', 'macos-arm64'),
+                  'windows_handover': ('macos-arm64', 'windows-x64')}
 
 
 def validate_release_link(release_id, url, platform='windows-x64'):
@@ -87,12 +92,13 @@ class Manifest:
             validate_release_link(doc['release_id'], doc['setup_url'], doc.get('platform'))
         if doc.get('platform') not in ('windows-x64', 'macos-arm64'):
             raise ValueError('Unsupported platform')
-        if 'mac_handover' in doc:
-            # A Windows release names the Mac setup that restores its backups (written to restore-on-mac).
-            mac = doc['mac_handover']
-            if doc['platform'] != 'windows-x64' or not isinstance(mac, dict) or set(mac) != {'release_id', 'setup_url'}:
-                raise ValueError('Invalid Mac handover link')
-            validate_release_link(mac['release_id'], mac['setup_url'], 'macos-arm64')
+        for key, (platform, target) in CROSS_HANDOVER.items():
+            if key in doc:
+                # A release names the other platform's setup that restores its backups.
+                link = doc[key]
+                if doc['platform'] != platform or not isinstance(link, dict) or set(link) != {'release_id', 'setup_url'}:
+                    raise ValueError('Invalid ' + ('Mac' if target == 'macos-arm64' else 'Windows') + ' handover link')
+                validate_release_link(link['release_id'], link['setup_url'], target)
         if 'minimum_os' in doc:
             os_version_tuple(doc['minimum_os'])
         self.document = doc

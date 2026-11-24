@@ -42,7 +42,10 @@ def application_zip():
     return out.getvalue()
 
 
-def mac_release(tmp_path, *, setup_url=True, runtimes=tuple(bundled.EXECUTABLES)):
+EXE = 'https://github.com/joeandblack/FamilyFotoPub/releases/download/test-1/FamilyFotoSetup.exe'
+
+
+def mac_release(tmp_path, *, setup_url=True, runtimes=tuple(bundled.EXECUTABLES), windows=False):
     data = {'application': application_zip(), 'core-lock': b'demo==1\n', 'password-lock': b'demo==1\n',
             'wheel': b'fixture wheel bytes'}
     programs = {role: program_zip(bundled.EXECUTABLES[role]) for role in runtimes}
@@ -58,6 +61,8 @@ def mac_release(tmp_path, *, setup_url=True, runtimes=tuple(bundled.EXECUTABLES)
     doc.update(platform='macos-arm64', minimum_os='27.0', features={'core': list(data)})
     if setup_url:
         doc['setup_url'] = DMG
+    if windows:
+        doc['windows_handover'] = {'release_id': 'test-1', 'setup_url': EXE}
     raw = json.dumps(doc).encode()
     release = Manifest(raw, digest(raw))
     attempt = tmp_path / 'attempt'
@@ -187,6 +192,21 @@ def test_install_script_runs_the_bundled_python(tmp_path):
     python.unlink()
     result = subprocess.run(['/bin/bash', script, 'install'], capture_output=True, text=True, env=env)
     assert result.returncode == 1 and 'bundled Python is missing' in result.stderr
+
+
+def test_mac_release_backups_name_the_windows_setup(tmp_path):
+    release, receipt, _ = mac_release(tmp_path, windows=True)
+    root = tmp_path / 'FamilyFoto'
+    shared_adapter.stage_application(release, receipt, root)
+    marker = root / '.shared-installer-release.json'
+    assert json.loads(marker.read_text())['windows_handover'] == {'release_id': 'test-1', 'setup_url': EXE}
+    backup = tmp_path / 'backup'
+    backup.mkdir()
+    handover.write_handover(backup, marker)
+    assert DMG in (backup / 'restore-on-mac/RELEASE.txt').read_text()
+    assert sorted(p.name for p in (backup / 'restore-on-windows').iterdir()) == ['README.txt']
+    text = (backup / 'restore-on-windows/README.txt').read_text()
+    assert EXE in text and 'Installer release: test-1' in text
 
 
 def receipt_file(tmp_path, content):

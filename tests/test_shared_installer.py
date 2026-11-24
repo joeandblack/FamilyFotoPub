@@ -92,6 +92,28 @@ def test_only_windows_releases_carry_a_separate_mac_handover():
         manifest(doc)
 
 
+WINDOWS_SETUP = 'https://github.com/joeandblack/FamilyFotoPub/releases/download/win-1/FamilyFotoSetup.exe'
+
+
+@pytest.mark.parametrize('link', [{'release_id': 'win-1', 'setup_url': WINDOWS_SETUP.replace('.exe', '.dmg')},
+                                  {'release_id': 'win-2', 'setup_url': WINDOWS_SETUP},
+                                  {'release_id': 'win-1'}, 'not a record',
+                                  {'release_id': 'win-1', 'setup_url': WINDOWS_SETUP, 'extra': 1}])
+def test_windows_handover_link_must_name_the_official_exe(link):
+    doc = document()
+    doc['platform'] = 'macos-arm64'
+    doc['windows_handover'] = link
+    with pytest.raises(ValueError):
+        manifest(doc)
+
+
+def test_only_mac_releases_carry_a_separate_windows_handover():
+    doc = document()
+    doc['windows_handover'] = {'release_id': 'win-1', 'setup_url': WINDOWS_SETUP}
+    with pytest.raises(ValueError, match='Windows handover'):
+        manifest(doc)
+
+
 def test_mac_manifest_accepts_dmg_link_only():
     doc = document()
     doc['platform'] = 'macos-arm64'

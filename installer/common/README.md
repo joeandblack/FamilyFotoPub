@@ -190,7 +190,8 @@ indeterminate progress for an unrecognized unit/stage, not invent a percentage.
 
 `installer/macos/shared_adapter.py` runs after `prepare()` as the signed-in user, never
 under sudo. It materializes the receipt for `macos-arm64` (with the launcher's
-`--os-version`), stages the application with `stage.py` (recording `mac_handover`), and
+`--os-version`), stages the application with `stage.py` (recording `mac_handover` and, when
+the manifest names it, `windows_handover`), and
 unpacks each `runtime_role` program into `<install>/bundled/<role>`. It checks every
 program archive before unpacking any, and writes `bundled/<role>.json` before and after
 unpacking, so an interrupted unpack is redone and a folder it does not own is refused.
@@ -280,6 +281,14 @@ release without `mac_handover`, or a source installation), backups keep the Term
 `restore-familyfoto-mac.command`, so there is always a working way to restore on a Mac.
 A bad or missing release record is logged and skipped, never failing a backup; a linked
 or unexpected `RELEASE.txt` is refused like the other handover files.
+
+The other direction works the same way. A Mac release manifest may name the Windows setup as
+`"windows_handover": {"release_id": …, "setup_url": …}` (the official `FamilyFotoSetup.exe`
+link). `installer/macos/build_release.py` writes it by default with the Mac release's own
+`release_id`, because both platforms are published under one tag; a recipe with
+`"windows": false` leaves it out for a Mac-only release. Staging records it, so backups made on
+the Mac get `restore-on-windows/README.txt` naming that EXE. Without it, they get the Windows
+source launcher pinned to the exact commit, or a disabled one.
 
 ### Remaining gates
 

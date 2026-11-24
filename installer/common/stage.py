@@ -4,7 +4,7 @@ import json
 import shutil
 import zipfile
 from .acquire import extract_zip, file_digest, plain_path, verified
-from .manifest import safe_relative, validate_release_link
+from .manifest import CROSS_HANDOVER, safe_relative, validate_release_link
 from .state import atomic_json
 
 MARKER = '.shared-installer-release.json'
@@ -31,11 +31,12 @@ def stage_application(manifest, receipt, destination, platform='windows-x64'):
         release_id = manifest.document['release_id']
         url = validate_release_link(release_id, manifest.document['setup_url'], platform)
         binding[HANDOVER_KEYS[platform]] = {'release_id': release_id, 'setup_url': url}
-    if manifest.document.get('mac_handover'):
-        # Backups from a Windows installation tell the Mac which setup app restores them.
-        mac = manifest.document['mac_handover']
-        binding['mac_handover'] = {'release_id': mac['release_id'],
-                                   'setup_url': validate_release_link(mac['release_id'], mac['setup_url'], 'macos-arm64')}
+    for key, (own, target) in CROSS_HANDOVER.items():
+        link = manifest.document.get(key)
+        if link and own == platform:
+            # Backups tell the other platform which setup restores them.
+            binding[key] = {'release_id': link['release_id'],
+                            'setup_url': validate_release_link(link['release_id'], link['setup_url'], target)}
     if destination.exists():
         if not marker.is_file() or json.loads(marker.read_text(encoding='utf-8')) != binding:
             raise ValueError('Existing application location is not owned by this release attempt')
