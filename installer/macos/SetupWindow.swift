@@ -379,8 +379,17 @@ final class Setup: ObservableObject {
                 if let n = report?["media_files"] as? Int { message += " Media files: \(n.formatted())." }
                 message += "\n\nSign in with the old library’s accounts and passwords."
                 if let people = report?["people"] as? [String: Any] {
-                    message += (people["library_check"] as? [String: Any])?["passed"] as? Bool == true
-                        ? "\nPeople is ready to edit." : "\nThe People check did not pass. Saved people are viewable."
+                    // As app.migration.move_in.people_summary: a check record, "no-stored-faces" or "skipped".
+                    let check = people["library_check"]
+                    if (check as? [String: Any])?["passed"] as? Bool == true {
+                        message += "\nPeople is ready to edit."
+                    } else if check as? String == "no-stored-faces" {
+                        message += "\nPeople is ready to edit. The library had no saved faces yet, so there was nothing to check."
+                    } else if check is [String: Any] {
+                        message += "\nThe People check did not pass. Saved people are viewable."
+                    } else {
+                        message += "\nPeople is installed. Its check runs at the first Discover people; until it passes, saved people are viewable."
+                    }
                 } else { message += "\nSaved people are viewable. Install People to edit them." }
             }
         } else if status == 3 {
