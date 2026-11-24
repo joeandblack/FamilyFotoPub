@@ -265,5 +265,8 @@ the dependency.
 
 The password and
 People-view locks are `installer/locks/password-windows-x64.txt` and
-`installer/locks/people-view-windows-x64.txt`; the People provider closures are not locked for
-Windows yet, so a Windows release offers Core.
+`installer/locks/people-view-windows-x64.txt`. People (recipe `models`) ships only the two face
+models: its provider libraries (opencv-python, onnxruntime, torch and the rest) bundle native
+libraries whose sources a release cannot publish, so `face_detect/cli/setup.py` installs them from
+PyPI with `--require-hashes` from `face_detect/config/dependencies/<provider>-windows-amd64.txt`,
+also during an offline installation. The builder and `build_shared` refuse provider locks in a release.

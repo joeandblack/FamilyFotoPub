@@ -27,12 +27,26 @@ def platform_spec():
     raise ValueError('Provider setup supports Windows x64 and Apple Silicon macOS; use approved platform dependencies elsewhere')
 
 
+def provider_lock(provider,target):
+    """The hash-pinned lock for a provider. The Mac's hashes live in its release locks
+    (installer/locks), the same versions as face_detect/config/dependencies/*-macos-arm64.txt."""
+    if target=='windows-amd64':return ROOT/f'face_detect/config/dependencies/{provider}-windows-amd64.txt'
+    return ROOT/f'installer/locks/{provider}-macos-arm64.txt'
+
+
 def install_dependencies(provider,env,target):
     python=env/('Scripts/python.exe' if target=='windows-amd64' else 'bin/python')
-    lock=ROOT/f'face_detect/config/dependencies/{provider}-{target}.txt'
-    flags=['--require-hashes','--only-binary=:all:'] if target=='windows-amd64' else []
     local_flags = pip_arguments(provider)
-    subprocess.run([str(python),'-m','pip','install',*(local_flags or [*flags,'-r',str(lock)])],check=True)
+    if local_flags:
+        subprocess.run([str(python),'-m','pip','install',*local_flags],check=True)
+    else:
+        # Releases do not ship these libraries: install them from PyPI, every file checked against its pin.
+        try:
+            subprocess.run([str(python),'-m','pip','install','--disable-pip-version-check','--require-hashes',
+                            '--only-binary=:all:','-r',str(provider_lock(provider,target))],check=True)
+        except subprocess.CalledProcessError as error:
+            raise RuntimeError("People's face-recognition libraries are downloaded from pypi.org during setup "
+                               'and could not be. Connect to the internet and try again.') from error
     install_view_dependencies(target)
     subprocess.run([str(python),'-m','pip','check'],check=True)
     return python

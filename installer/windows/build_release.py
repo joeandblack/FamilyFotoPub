@@ -21,8 +21,11 @@ The recipe names local, already-downloaded inputs; nothing here downloads or pub
    "mac": true}                             (optional, default true: the Mac setup is published under
                                              the same release_id, so new backups name it)
 
-People (the insightface/facenet locks and models) is added only when the recipe names them;
-without them the release offers Core, which still restores People catalogs for viewing.
+People is added when the recipe names the two models ("models": {"insightface": ..., "facenet": ...}).
+The release ships only the models: People's provider libraries (opencv-python, onnxruntime, torch
+and the rest) bundle native libraries whose sources a release cannot publish, so setup installs
+them from PyPI by hash (face_detect/cli/setup.py). Without models the release offers Core, which
+still restores People catalogs for viewing.
 
 Each native payload must be byte-for-byte the file Windows setup pins (setup-common.ps1,
 install-python.ps1): setup finds prepared payloads by that SHA-256 and never falls back to the
@@ -44,7 +47,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from installer.common.bundle import build as build_bundle  # noqa: E402
-from installer.common.manifest import PYPI, RELEASE_BASE, SETUP_ASSETS, Manifest, safe_relative, sha256  # noqa: E402
+from installer.common.manifest import RELEASE_BASE, SETUP_ASSETS, Manifest, safe_relative, sha256  # noqa: E402
 from installer.macos.build_release import (COPYLEFT, MODELS, asset_name, file_sha256, index_lock_problems, lock_pins,  # noqa: E402
                                            model_digest, normalized, uncompressed, wheel_license)
 from installer.windows.build_shared import audit_windows_release  # noqa: E402
@@ -86,7 +89,9 @@ def assemble(recipe_path, output):
         raise ValueError('Output already exists')
     payload = output / 'payload'
     payload.mkdir(parents=True)
-    people = all(role in recipe.get('locks', {}) for role in PEOPLE_LOCKS) and 'models' in recipe
+    people = 'models' in recipe
+    if any(role in recipe.get('locks', {}) for role in PEOPLE_LOCKS):
+        raise ValueError('People provider locks are not shipped; setup installs them from PyPI')
     components, features = [], {'core': [], **({'people': []} if people else {})}
     release_url = RELEASE_BASE + '/' + quote(recipe['release_id'], safe='')
 
@@ -108,13 +113,9 @@ def assemble(recipe_path, output):
         add(cid, source, f'runtime/{source.name}', 'core', licenses.get(cid, []))
     wheelhouse = {file_sha256(w): w for w in sorted(path(recipe['wheels']).glob('*.whl'))}
     placed = set()
-    for role in (*CORE_LOCKS, *(PEOPLE_LOCKS if people else ())):
-        feature = 'core' if role in CORE_LOCKS else 'people'
+    for role in CORE_LOCKS:
+        feature = 'core'
         lock = path(recipe['locks'][role])
-        if role in PEOPLE_LOCKS:
-            # Not shipped: setup installs People's provider wheels from PyPI, each pinned by this lock.
-            add('lock-' + role, lock, f'locks/{role}.txt', feature, ['FamilyFoto'], lock_role=role, wheel_index=PYPI)
-            continue
         add('lock-' + role, lock, f'locks/{role}.txt', feature, ['FamilyFoto'], lock_role=role)
         for digest, pin in sorted(lock_pins(lock).items()):
             if digest in placed:

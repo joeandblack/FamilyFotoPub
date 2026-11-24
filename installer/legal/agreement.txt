@@ -82,7 +82,9 @@ Setup downloads FamilyFoto and the components above from FamilyFoto's GitHub rel
 every file against the checksum recorded for this release; an offline installer carries them
 instead. On Windows, setup downloads FFmpeg from www.gyan.dev, also during an offline
 installation, and checks it against a pinned checksum. If you include People, setup downloads its
-Python libraries from the Python Package Index (section 4), also during an offline installation. After setup, FamilyFoto runs on your computer: your photos, videos and catalog stay
+face-recognition libraries (such as OpenCV, ONNX Runtime and PyTorch) from the Python Package Index
+(pypi.org), also during an offline installation, and checks each file against a pinned checksum;
+the face models come with the release. After setup, FamilyFoto runs on your computer: your photos, videos and catalog stay
 there, and FamilyFoto does not send them, or reports about them, to the FamilyFoto developers or
 anyone else. Face recognition runs locally and never downloads anything. Anyone you give an
 account to, or who can reach FamilyFoto on your network, can see what that account allows.
