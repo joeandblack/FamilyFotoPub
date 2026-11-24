@@ -86,6 +86,33 @@ def settings(db):
             'destination_locked':populated,'busy':pipeline_snapshot(db)['busy'],'revision':revision()}
 
 
+def marker_refusal(destination):
+    """Refuse a destination whose parent folder already holds a library's volume marker.
+
+    The marker sits beside a library's media folder, so a second library there would be
+    mistaken for the first. The refusal names the marker and the library it belongs to,
+    and says when that library's folder is gone, so a leftover can be recognised. A
+    leftover is never ignored or removed here: whether that library is really gone is
+    the owner's call."""
+    marker=destination.parent/'.familyfoto-volume.json'
+    if not marker.exists():
+        return
+    other=''
+    try:
+        with marker.open('rb') as stream:
+            other=json.loads(stream.read(65536)).get('root') or ''
+    except (OSError,ValueError,AttributeError):
+        pass
+    other=other if isinstance(other,str) else ''
+    elsewhere=f'Choose a folder inside a new empty folder instead, for example {destination/"media"}.'
+    if not other:
+        raise ValueError(f'{marker} marks this folder as holding a FamilyFoto library. {elsewhere}')
+    if Path(other).exists():
+        raise ValueError(f'{marker} belongs to the FamilyFoto library at {other}. {elsewhere}')
+    raise ValueError(f'{marker} was left by a FamilyFoto library at {other}, which no longer exists. '
+                     f'If that library is gone, delete the marker and try again. Or: {elsewhere}')
+
+
 def save(db,payload):
     from ..jobs import idle
     idle(db)  # Serialize configuration with imports, maintenance and other saves.
@@ -107,7 +134,7 @@ def save(db,payload):
         if any(p.is_symlink() or (hasattr(p, 'is_junction') and p.is_junction()) for p in (candidate,*candidate.parents)):
             raise ValueError('Linked destination folders are not allowed')
         if destination.exists() and (not destination.is_dir() or any(destination.iterdir())):raise ValueError('Choose a new or empty destination folder')
-        if (destination.parent/'.familyfoto-volume.json').exists():raise ValueError('Destination already has a library marker; migration review required')
+        marker_refusal(destination)
         drive=storage_drive(destination);disk=snapshot([drive])[drive]
         if sys.platform == 'darwin' and not disk.get('writable'):
             raise ValueError('Destination volume is read-only')

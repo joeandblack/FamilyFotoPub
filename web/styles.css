@@ -117,7 +117,6 @@ body[data-view="imports"] #summary,body[data-view="settings"] #summary{display:n
 body[data-role="guest"] #metadataResume,body[data-role="guest"] #metadataPause{display:none}
 .video-duration{position:absolute;right:4px;bottom:4px;padding:2px 4px;border-radius:3px;background:#000a;color:#fff;font-size:11px;font-weight:600;line-height:1.2;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none}
 .tile.selectable .video-duration{right:36px}
-.import-history-row{padding:10px 0;border-bottom:1px solid #dce2df;font-size:12px;line-height:1.6;overflow-wrap:anywhere}.import-history-row strong{font-size:13px}.import-history-row .muted{font-size:11px}
 #manualImport{padding:12px 0 18px;border-bottom:1px solid #dce2df;margin-bottom:12px;font-size:13px}
 #manualImport label{display:block;margin-bottom:6px}.manual-source{display:flex;gap:8px;align-items:center}.manual-source input{min-width:0;flex:1;height:36px}
 #manualImport button{display:inline-flex;align-items:center;gap:6px;padding:7px 10px}#manualImport svg{width:18px;height:18px;flex:none}#manualImport small{display:block;margin-top:6px;color:#758079}

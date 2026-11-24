@@ -122,8 +122,11 @@ def enroll_storage(source_path, destination_path):
     destination=candidate.resolve()
     if destination.exists() and (not destination.is_dir() or any(destination.iterdir())):
         raise SystemExit('Choose a new or empty destination folder.')
-    if (destination.parent/'.familyfoto-volume.json').exists():
-        raise SystemExit('Destination has a library marker; migration review required.')
+    from app.storage.config import marker_refusal
+    try:
+        marker_refusal(destination)
+    except ValueError as refused:
+        raise SystemExit(str(refused))
     source=enroll_source({'destination':{'root':str(destination)}},source_path)
     drive=destination.drive.rstrip(':')
     disk=snapshot([drive])[drive]
