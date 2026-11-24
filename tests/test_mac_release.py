@@ -152,7 +152,7 @@ def recipe(tmp_path, monkeypatch, *, source=True, wheel_license='MIT', sources=T
     shared = wheel(wheels / 'shared_pkg-2.0-py3-none-any.whl', 'shared_pkg', '2.0')
     for role in ('core', 'password', 'people-view', 'insightface', 'facenet'):
         w = wheel(wheels / f'{role.replace("-", "_")}_pkg-1.0-py3-none-any.whl', role.replace('-', '_') + '_pkg', '1.0',
-                  wheel_license if role == 'insightface' else 'MIT')
+                  wheel_license if role == 'password' else 'MIT')
         locks[role] = tmp_path / f'{role}.txt'
         locks[role].write_text(f'{role}-pkg==1.0 --hash=sha256:{build_release.file_sha256(w)}\n'
                                f'shared-pkg==2.0 --hash=sha256:{build_release.file_sha256(shared)}\n')
@@ -193,7 +193,11 @@ def test_assembled_release_passes_the_audit(tmp_path, monkeypatch):
     roles = {c.get('runtime_role') for c in doc['components']}
     assert set(EXECUTABLES) <= roles
     wheels = [c for c in doc['components'] if c['bundle_path'].endswith('.whl')]
-    assert len(wheels) == 6  # five role packages plus one shared wheel, placed once
+    assert len(wheels) == 4  # three shipped role packages plus one shared wheel, placed once
+    # People's provider wheels are not shipped: their locks install from PyPI, hash-pinned.
+    people = {c['lock_role']: c.get('wheel_index') for c in doc['components'] if c.get('lock_role') in ('insightface', 'facenet')}
+    assert people == {'insightface': 'https://pypi.org/simple', 'facenet': 'https://pypi.org/simple'}
+    assert not any(c['bundle_path'].startswith(('wheels/insightface', 'wheels/facenet')) for c in doc['components'])
     assets = json.loads((release / 'assets.json').read_text())
     assert assets['runtime--python.zip'] == 'runtime/python.zip'
     assert all(c['url'].endswith('/' + c['bundle_path'].replace('/', '--')) for c in doc['components'])
@@ -236,20 +240,20 @@ def test_release_without_its_sources_fails_the_audit(tmp_path, monkeypatch):
 
 def test_copyleft_wheel_needs_its_source_distribution(tmp_path, monkeypatch):
     manifest, release = assembled(tmp_path, monkeypatch, wheel_license='GNU Lesser General Public License v3 (LGPLv3)')
-    with pytest.raises(ValueError, match='lacks the source distribution of insightface_pkg 1.0'):
+    with pytest.raises(ValueError, match='lacks the source distribution of password_pkg 1.0'):
         build_release.audit(manifest, release / 'payload')
     sources = release / 'sources'
-    for sidecar in ('insightface_pkg-1.0.tar.gz.sha256', 'insightface_pkg-1.0.tar.gz.asc', 'insightface_pkg-1.0.tar.gz.part'):
+    for sidecar in ('password_pkg-1.0.tar.gz.sha256', 'password_pkg-1.0.tar.gz.asc', 'password_pkg-1.0.tar.gz.part'):
         (sources / sidecar).write_text('not the archive')
         with pytest.raises(ValueError, match='lacks the source distribution'):
             build_release.audit(manifest, release / 'payload')
-    (sources / 'insightface_pkg-1.0.tar.gz').write_bytes(b'not an archive')
+    (sources / 'password_pkg-1.0.tar.gz').write_bytes(b'not an archive')
     with pytest.raises(ValueError, match='lacks the source distribution'):
         build_release.audit(manifest, release / 'payload')
-    (sources / 'insightface_pkg-1.0.tar.gz').unlink()
-    with tarfile.open(sources / 'insightface-pkg-1.0.tar.gz', 'w:gz') as archive:  # any spelling of the name
-        data = b'[project]\nname = "insightface_pkg"\n'
-        info = tarfile.TarInfo('insightface_pkg-1.0/pyproject.toml')
+    (sources / 'password_pkg-1.0.tar.gz').unlink()
+    with tarfile.open(sources / 'password-pkg-1.0.tar.gz', 'w:gz') as archive:  # any spelling of the name
+        data = b'[project]\nname = "password_pkg"\n'
+        info = tarfile.TarInfo('password_pkg-1.0/pyproject.toml')
         info.size = len(data)
         archive.addfile(info, io.BytesIO(data))
     build_release.audit(manifest, release / 'payload')
@@ -267,8 +271,8 @@ def test_terms_cover_what_a_release_bundles():
 
 def test_missing_locked_wheel_is_refused_at_assembly(tmp_path, monkeypatch):
     path = recipe(tmp_path, monkeypatch)
-    next((tmp_path / 'wheelhouse').glob('facenet*.whl')).unlink()
-    with pytest.raises(ValueError, match='wheelhouse lacks facenet-pkg'):
+    next((tmp_path / 'wheelhouse').glob('password*.whl')).unlink()
+    with pytest.raises(ValueError, match='wheelhouse lacks password-pkg'):
         build_release.assemble(path, tmp_path / 'release')
 
 
@@ -322,7 +326,7 @@ def test_wheel_license_falls_back_to_the_recipe(tmp_path, monkeypatch):
     path.mkdir()
     r = recipe(path, monkeypatch, wheel_license=None)
     doc = json.loads(r.read_text())
-    doc['licenses']['wheel:insightface-pkg'] = ['MIT']
+    doc['licenses']['wheel:password-pkg'] = ['MIT']
     r.write_text(json.dumps(doc))
     manifest = build_release.assemble(r, path / 'release')
     build_release.audit(manifest, path / 'release/payload')
@@ -447,3 +451,20 @@ def test_audit_refuses_a_program_newer_than_minimum_os_and_unlicensed_formulas(t
         build_release.audit(manifest, payload)
     assert 'runtime-ffmpeg: lib/libnew.dylib needs macOS 28.0, newer than minimum_os 27.0' in str(error.value)
     assert 'runtime-postgres: quiet has no license file and no SPDX license' in str(error.value)
+
+
+def test_people_provider_locks_install_from_pypi_and_must_pin_every_file(tmp_path, monkeypatch):
+    manifest, release = assembled(tmp_path, monkeypatch)
+    lock = release / 'payload/locks/insightface.txt'
+    # An unhashed line would install an unverified file from PyPI.
+    damaged = rewrite(release, lambda doc: None)
+    lock.write_text(lock.read_text() + 'unpinned-pkg==1.0\n')
+    item = damaged.components['lock-insightface']
+    assert build_release.index_lock_problems(item, lock) == [
+        'lock-insightface: installed from PyPI, so every requirement needs a --hash (unpinned-pkg==1.0)']
+    # Shipping People's wheels again (no wheel_index) is refused by the audit.
+    def ship(doc):
+        for c in doc['components']:
+            c.pop('wheel_index', None)
+    with pytest.raises(ValueError, match="People's provider wheels must install from PyPI"):
+        build_release.audit(rewrite(release, ship), release / 'payload')

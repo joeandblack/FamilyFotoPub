@@ -26,7 +26,8 @@ def people_terms():
     """PEOPLE_TERMS, except that a shared-installer release already carries the model."""
     if bundled.active():
         return PEOPLE_TERMS.replace('The model is downloaded during installation.',
-                                    'The model is included with this installer.')
+                                    'The model is included with this installer; its libraries are '
+                                    'downloaded from the Python Package Index during installation.')
     return PEOPLE_TERMS
 
 

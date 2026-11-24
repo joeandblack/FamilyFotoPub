@@ -40,7 +40,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from installer.common.bundle import build as build_bundle  # noqa: E402
-from installer.common.manifest import (RELEASE_BASE, SETUP_ASSETS, Manifest, os_version_tuple,  # noqa: E402
+from installer.common.manifest import (PYPI, RELEASE_BASE, SETUP_ASSETS, Manifest, os_version_tuple,  # noqa: E402
                                        safe_relative, sha256)
 from installer.macos.build_payloads import MACHO, macho_minimum_bytes  # noqa: E402
 from installer.macos.bundled import EXECUTABLES  # noqa: E402
@@ -137,6 +137,15 @@ def lock_pins(path):
     return pins
 
 
+def index_lock_problems(item, path):
+    """A lock installed from PyPI must pin every requirement by hash, since nothing of it ships."""
+    if not item.get('wheel_index'):
+        return []
+    unpinned = [line.split()[0] for line in Path(path).read_text(encoding='utf-8').splitlines()
+                if line.strip() and not line.startswith('#') and '--hash=sha256:' not in line]
+    return [f"{item['id']}: installed from PyPI, so every requirement needs a --hash ({', '.join(unpinned)})"] if unpinned else []
+
+
 def runtime_minimum(archive):
     """(version, entry name) of the newest macOS any Mach-O in a runtime ZIP needs.
 
@@ -190,6 +199,10 @@ def assemble(recipe_path, output):
     for role in (*CORE_LOCKS, *PEOPLE_LOCKS):
         feature = 'core' if role in CORE_LOCKS else 'people'
         lock = path(recipe['locks'][role])
+        if role in PEOPLE_LOCKS:
+            # Not shipped: setup installs People's provider wheels from PyPI, each pinned by this lock.
+            add('lock-' + role, lock, f'locks/{role}.txt', feature, ['FamilyFoto'], lock_role=role, wheel_index=PYPI)
+            continue
         add('lock-' + role, lock, f'locks/{role}.txt', feature, ['FamilyFoto'], lock_role=role)
         for digest, pin in sorted(lock_pins(lock).items()):
             if digest in placed:
@@ -252,6 +265,8 @@ def audit(manifest, payload_root):
         people = manifest.plan(['core', 'people'], PLATFORM, minimum or MINIMUM_MACOS)
         locks = {c.get('lock_role') for c in people}
         problems += [f'People lacks the {r} lock' for r in PEOPLE_LOCKS if r not in locks]
+        problems += [f"{c['id']}: People's provider wheels must install from PyPI, not ship" for c in people
+                     if c.get('lock_role') in PEOPLE_LOCKS and not c.get('wheel_index')]
         for provider in PEOPLE_LOCKS:
             models = [c for c in people if c.get('model_provider') == provider]
             if len(models) != 1 or models[0].get('model_identity') != MODELS[provider]['model']:
@@ -268,7 +283,9 @@ def audit(manifest, payload_root):
             problems.append(f"{item['id']}: no license inventory IDs")
         if zipfile.is_zipfile(path) and item['installed_size_estimate'] < uncompressed(path):
             problems.append(f"{item['id']}: installed_size_estimate is below the real uncompressed size")
-        if item.get('lock_role'):
+        if item.get('lock_role') and item.get('wheel_index'):
+            problems += index_lock_problems(item, path)
+        elif item.get('lock_role'):
             pinned.update(lock_pins(path))
         if item.get('runtime_role') in ('postgres', 'ffmpeg'):
             info = json.loads(zipfile.ZipFile(path).read('payload-info.json'))
