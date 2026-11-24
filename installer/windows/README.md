@@ -231,3 +231,26 @@ account's Modify permission; existing ACL entries are preserved. Links and hard
 links are refused. Backup files, catalog contents, PostgreSQL files and media
 bytes are not changed. An explicitly accepted non-ACL media disk such as exFAT
 does not receive an ACL repair.
+
+## Release builder
+
+`build_release.py` assembles and audits a Windows release of the shared installer from local,
+already-downloaded inputs (it never downloads or publishes), mirroring
+`installer/macos/build_release.py`:
+
+```powershell
+python -m installer.windows.build_release assemble --recipe recipe.json --output release
+python -m installer.windows.build_release audit --release release
+python -m installer.windows.build_release descriptor --release release --engine engine.zip --mode online --notices "..." --output bootstrap-online.json
+python -m installer.windows.build_release bundle --release release --engine engine.zip --output offline
+```
+
+Build `engine.zip` and `FamilyFotoSetup.exe` with `build_shared.py` from a clean checkout of the
+release tag, so the shipped code is exactly that commit. The audit refuses a release whose native
+payloads are not the files the setup scripts pin (setup finds prepared payloads by SHA-256 and has
+no network fallback), whose locked wheels are missing, which lacks the Mac handover, or whose
+copyleft sources are missing. FFmpeg needs `sources/ffmpeg/SOURCES.md` to say `Status: complete`,
+written only after the bundled libraries' sources are checked by hand. The password and
+People-view locks are `installer/locks/password-windows-x64.txt` and
+`installer/locks/people-view-windows-x64.txt`; the People provider closures are not locked for
+Windows yet, so a Windows release offers Core.
