@@ -175,7 +175,8 @@ def test_windows_and_mac_asset_names_never_collide(recipe, tmp_path, monkeypatch
     from tests.test_mac_release import recipe as mac_recipe
     from installer.macos import build_release as mr
     path, out = recipe
-    windows = set(json.loads((wr.assemble(path, out) and out / 'assets.json').read_text()))
+    wr.assemble(path, out)
+    windows = set(json.loads((out / 'assets.json').read_text()))
     mac_out = tmp_path / 'mac'
     mac_out.mkdir()
     mr.assemble(mac_recipe(mac_out, monkeypatch), mac_out / 'release')
@@ -186,7 +187,7 @@ def test_windows_and_mac_asset_names_never_collide(recipe, tmp_path, monkeypatch
 
 def test_audit_refuses_an_unprefixed_windows_asset(recipe):
     path, out = recipe
-    manifest = wr.assemble(path, out)
+    wr.assemble(path, out)
     raw = json.loads((out / 'manifest.json').read_bytes())
     item = next(c for c in raw['components'] if c['id'] == 'application')
     (out / 'payload' / 'application').mkdir(parents=True)
