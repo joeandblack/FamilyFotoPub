@@ -93,7 +93,7 @@ def write_windows_handover(backup, receipt_path=None):
         f"Installer release: {release['release_id']}\n{url}\n\n"
         'Download this release from the official FamilyFoto GitHub repository.\n'
         'Do not run executable files merely because they are on this backup disk.\n'
-        'For offline restore, use the matching offline package obtained separately.\n\n'
+        '\n'
         'Open FamilyFotoSetup.exe and choose Restore in the setup window. Select\n'
         'this backup folder (the parent of restore-on-windows), then enter the\n'
         'FamilyFoto administrator password used when this backup was made.\n'

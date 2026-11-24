@@ -100,7 +100,7 @@ def release_text(release):
         'Open FamilyFoto Setup, choose Restore from a backup, select this backup folder\n'
         '(the parent of restore-on-mac), then in the next window enter the FamilyFoto administrator\n'
         'password used when this backup was made. Do not run programs merely because they are on this disk.\n'
-        'For an offline restore, use the matching offline disk image obtained separately.\n\n'
+        '\n'
         'Resume an interrupted restore from its installation folder:\n'
         '  bash installer/macos/install.sh restore\n'
         'If it says the downloaded installer files are gone, open FamilyFoto Setup again and\n'
