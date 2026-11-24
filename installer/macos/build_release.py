@@ -17,7 +17,9 @@ The recipe names local, already-built inputs; nothing here downloads or publishe
    "wheels": "wheelhouse/",                                   (every wheel the locks pin)
    "models": {"insightface": "buffalo_l.zip", "facenet": "20180402-114759-vggface2.pt"},
    "licenses": {"application": ["FamilyFoto"], "python": ["PSF-2.0"], "wheel:insightface": ["MIT"], ...},
-   "sources": "sources/"}     (published with the release; `audit` lists what it must hold)
+   "sources": "sources/",    (published with the release; `audit` lists what it must hold)
+   "windows": true}          (optional, default true: the Windows setup is published under the
+                              same release_id, so new backups name it; false for a Mac-only release)
 
 Assets are published flat: `bundle_path` with `/` replaced by `--`, under RELEASE_BASE.
 """
@@ -217,6 +219,10 @@ def assemble(recipe_path, output):
                setup_url=release_url + '/' + SETUP_ASSETS[PLATFORM],
                agreement_path='legal/' + agreement.name, agreement_sha256=file_sha256(agreement),
                components=components, features=features)
+    if recipe.get('windows', True):
+        # Both platforms ship under one release_id, so a Mac backup names the matching Windows setup.
+        doc['windows_handover'] = dict(release_id=recipe['release_id'],
+                                       setup_url=release_url + '/' + SETUP_ASSETS['windows-x64'])
     raw = json.dumps(doc, indent=1, sort_keys=True).encode()
     (output / 'manifest.json').write_bytes(raw)
     (output / 'assets.json').write_text(json.dumps(
