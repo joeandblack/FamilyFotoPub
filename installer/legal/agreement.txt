@@ -24,7 +24,8 @@ backups.
 FamilyFoto Setup installs the FamilyFoto application and, inside its installation folder:
 - a private Python 3.12 runtime and the Python libraries FamilyFoto uses,
 - PostgreSQL 17, the database that holds the catalog,
-- FFmpeg, which converts and reads videos,
+- FFmpeg, which converts and reads videos (on Windows, setup downloads it from www.gyan.dev
+  during installation; the Windows release does not include it),
 - the setup window,
 - and, only if you include People, face-recognition libraries and face models (section 4).
 
@@ -36,8 +37,10 @@ under share/licenses in their folders).
 
 - Python: Python Software Foundation License Version 2 (PSF-2.0).
 - PostgreSQL: the PostgreSQL License.
-- FFmpeg: GNU GPL version 3 or later, as built for this release (it includes x264 and x265,
-  which are under the GPL version 2 or later).
+- FFmpeg: GNU GPL version 3 or later. On the Mac, the release includes FFmpeg as built for it
+  (with x264 and x265, which are under the GPL version 2 or later). On Windows, FamilyFoto does
+  not distribute FFmpeg: setup downloads gyan.dev's build, which gyan.dev distributes under the
+  GPL version 3 (https://www.gyan.dev/ffmpeg/builds/), and checks it against a pinned SHA-256.
 - psycopg (the database driver): GNU LGPL version 3. You may replace it with a compatible
   version of your own.
 - Other Python libraries, such as FastAPI, Uvicorn, Pillow, pillow-heif, httpx, cryptography,
@@ -46,8 +49,9 @@ under share/licenses in their folders).
 - Web interface: Lucide icons (ISC), daisyUI (MIT) and Cropper.js (MIT).
 
 Source code. The complete corresponding source code for the GPL and LGPL programs in this
-release, including FFmpeg and the libraries it is built with, is published with this release on
-https://github.com/joeandblack/FamilyFotoPub/releases, together with the build recipes used.
+release, including the Mac release's FFmpeg and the libraries it is built with, is published
+with this release on https://github.com/joeandblack/FamilyFotoPub/releases, together with the
+build recipes used. The Windows release contains no FFmpeg; gyan.dev provides its own build.
 
 4. People (optional face recognition)
 

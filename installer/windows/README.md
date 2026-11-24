@@ -249,8 +249,10 @@ Build `engine.zip` and `FamilyFotoSetup.exe` with `build_shared.py` from a clean
 release tag, so the shipped code is exactly that commit. The audit refuses a release whose native
 payloads are not the files the setup scripts pin (setup finds prepared payloads by SHA-256 and has
 no network fallback), whose locked wheels are missing, which lacks the Mac handover, or whose
-copyleft sources are missing. FFmpeg needs `sources/ffmpeg/SOURCES.md` to say `Status: complete`,
-written only after the bundled libraries' sources are checked by hand. The password and
+copyleft sources are missing. It also refuses a release that ships FFmpeg: the Windows release
+does not include it, and `install-ffmpeg.ps1` downloads gyan.dev's pinned build during setup, even
+from prepared or offline payloads (`Get-SetupDownload -Network`; FFmpeg is the only such
+component). An offline installation therefore needs internet for that one step. The password and
 People-view locks are `installer/locks/password-windows-x64.txt` and
 `installer/locks/people-view-windows-x64.txt`; the People provider closures are not locked for
 Windows yet, so a Windows release offers Core.

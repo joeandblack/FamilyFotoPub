@@ -278,6 +278,33 @@ def test_cached_download_hash_checked_without_network(tmp_path):
     assert artifact.read_bytes() == b'fixture-not-executable'
 
 
+def test_prepared_payloads_never_fall_back_except_for_network_components(tmp_path):
+    """With prepared payloads, only a -Network component (FFmpeg) may come from its pinned URL."""
+    import hashlib
+    receipt = tmp_path / 'receipt.json'
+    receipt.write_text(json.dumps({'schema_version': 1, 'stage': 'materialized', 'payloads': {}}))
+    served = tmp_path / 'served.zip'
+    served.write_bytes(b'downloaded-fixture')
+    digest = hashlib.sha256(served.read_bytes()).hexdigest()
+    url = served.as_uri()  # Invoke-WebRequest reads file: URIs, so no network is used
+    env = f"$env:FAMILYFOTO_PAYLOAD_RECEIPT={literal(receipt)}; "
+    refused = helpers(env + f"Get-SetupDownload '{url}' {literal(tmp_path / 'a.zip')} '{digest}'")
+    assert refused.returncode != 0 and 'Network fallback is disabled' in refused.stderr
+    assert not (tmp_path / 'a.zip').exists()
+    allowed = helpers(env + f"Get-SetupDownload '{url}' {literal(tmp_path / 'b.zip')} '{digest}' -Network")
+    assert allowed.returncode == 0, allowed.stderr
+    assert (tmp_path / 'b.zip').read_bytes() == b'downloaded-fixture'
+    wrong = helpers(env + f"Get-SetupDownload '{url}' {literal(tmp_path / 'c.zip')} '{'0' * 64}' -Network")
+    assert wrong.returncode != 0 and not (tmp_path / 'c.zip').exists()
+
+
+def test_ffmpeg_is_the_only_network_component():
+    import re
+    scripts = sorted((ROOT / 'installer/windows').glob('*.ps1'))
+    users = [p.name for p in scripts if re.search(r'Get-SetupDownload\b[^\n]*-Network', p.read_text(encoding='utf-8'))]
+    assert users == ['install-ffmpeg.ps1']
+
+
 def test_private_directory_acl(tmp_path):
     target = literal(tmp_path / 'private')
     result = helpers(f"Set-SetupPrivateDirectory {target}; $acl=Get-Acl -LiteralPath {target}; "

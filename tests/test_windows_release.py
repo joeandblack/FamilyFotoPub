@@ -34,8 +34,7 @@ def recipe(tmp_path, monkeypatch):
     with zipfile.ZipFile(work / 'FamilyFoto-test.zip', 'w') as archive:
         archive.writestr('FamilyFoto/README.md', 'app')
     names = {'python': 'python.3.12.10.nupkg', 'postgres-installer': 'postgresql-17.11-5-windows-x64.exe',
-             'postgres-binaries': 'postgresql-17.11-5-windows-x64-binaries.zip',
-             'ffmpeg': 'ffmpeg-9.0.2-essentials_build.zip'}
+             'postgres-binaries': 'postgresql-17.11-5-windows-x64-binaries.zip'}
     pins = {}
     for cid, name in names.items():
         if name.endswith('.zip'):
@@ -52,16 +51,14 @@ def recipe(tmp_path, monkeypatch):
     lock(work / 'password.txt', core[:1])
     lock(work / 'view.txt', view)
     sources = work / 'sources'
-    (sources / 'ffmpeg').mkdir(parents=True)
-    (sources / 'ffmpeg' / 'ffmpeg-9.0.2.tar.xz').write_bytes(b'source')
-    (sources / 'ffmpeg' / 'SOURCES.md').write_text('inventory\nStatus: complete\n')
+    sources.mkdir()
     (sources / 'psycopg-3.2.9.tar.gz').write_bytes(b'sdist')
     (sources / 'psycopg_c-3.2.9.tar.gz').write_bytes(b'sdist')  # psycopg-binary's source package
     doc = dict(release_id='v0.1.0-beta.2', source_commit='a' * 40, application='FamilyFoto-test.zip',
                payloads=names, locks={'core': 'core.txt', 'password': 'password.txt', 'people-view': 'view.txt'},
                wheels='wheelhouse', sources='sources',
                licenses={'python': ['PSF-2.0'], 'postgres-installer': ['PostgreSQL'],
-                         'postgres-binaries': ['PostgreSQL'], 'ffmpeg': ['GPL-3.0-or-later']})
+                         'postgres-binaries': ['PostgreSQL']})
     path = work / 'recipe.json'
     path.write_text(json.dumps(doc), encoding='utf-8')
     return path, tmp_path / 'release'
@@ -85,9 +82,7 @@ def test_assembled_release_passes_audit_and_names_both_setups(recipe):
 
 @pytest.mark.parametrize('problem,expected', [
     ('pin', 'not the file Windows setup pins'),
-    ('ffmpeg-source', 'FFmpeg release source archive'),
-    ('inventory', 'SOURCES.md'),
-    ('unconfirmed', 'does not say "Status: complete"'),
+    ('shipped-ffmpeg', 'ffmpeg: must not be shipped'),
     ('psycopg-c', 'source distribution of psycopg-c'),
     ('sdist', 'source distribution of psycopg'),
     ('mac', 'mac_handover is missing'),
@@ -97,12 +92,12 @@ def test_audit_refusals(recipe, monkeypatch, problem, expected):
     work = path.parent
     if problem == 'pin':
         monkeypatch.setattr(wr, 'setup_pins', lambda root=None: {**dict.fromkeys(wr.NATIVE, '0' * 64)})
-    if problem == 'ffmpeg-source':
-        (work / 'sources/ffmpeg/ffmpeg-9.0.2.tar.xz').unlink()
-    if problem == 'inventory':
-        (work / 'sources/ffmpeg/SOURCES.md').unlink()
-    if problem == 'unconfirmed':
-        (work / 'sources/ffmpeg/SOURCES.md').write_text('libraries not collected')
+    if problem == 'shipped-ffmpeg':
+        (work / 'ffmpeg.zip').write_bytes(b'gpl build')
+        doc = json.loads(path.read_text()); doc['payloads']['ffmpeg'] = 'ffmpeg.zip'; path.write_text(json.dumps(doc))
+        monkeypatch.setattr(wr, 'NATIVE', (*wr.NATIVE, 'ffmpeg'))
+        pins = wr.setup_pins()
+        monkeypatch.setattr(wr, 'setup_pins', lambda root=None: {**pins, 'ffmpeg': hashlib.sha256(b'gpl build').hexdigest()})
     if problem == 'psycopg-c':
         (work / 'sources/psycopg_c-3.2.9.tar.gz').unlink()
     if problem == 'sdist':

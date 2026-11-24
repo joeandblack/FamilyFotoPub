@@ -18,7 +18,8 @@ def audit_windows_release(manifest, payload_root):
         raise ValueError('Release assembly requires setup_url and minimum_os')
     core = manifest.plan(['core'], 'windows-x64', manifest.document['minimum_os'])
     ids = {item['id'] for item in core}
-    required = {'application', 'python', 'postgres-installer', 'postgres-binaries', 'ffmpeg'}
+    # FFmpeg is not shipped: setup downloads gyan.dev's pinned build (install-ffmpeg.ps1).
+    required = {'application', 'python', 'postgres-installer', 'postgres-binaries'}
     if not required.issubset(ids):
         raise ValueError('Missing core payloads: ' + ', '.join(sorted(required - ids)))
     roles = {item.get('lock_role') for item in core}

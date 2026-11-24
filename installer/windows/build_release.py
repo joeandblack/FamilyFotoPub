@@ -13,11 +13,10 @@ The recipe names local, already-downloaded inputs; nothing here downloads or pub
    "application": "FamilyFoto-0.1.0b2.zip", (installer/release.py build, from the tagged commit)
    "payloads": {"python": "python.3.12.10.nupkg",
                 "postgres-installer": "postgresql-17.11-5-windows-x64.exe",
-                "postgres-binaries": "postgresql-17.11-5-windows-x64-binaries.zip",
-                "ffmpeg": "ffmpeg-9.0.2-essentials_build.zip"},
+                "postgres-binaries": "postgresql-17.11-5-windows-x64-binaries.zip"},
    "locks": {"core": "installer/locks/core-windows-x64.txt", "password": ..., "people-view": ...},
    "wheels": "wheelhouse/",                 (every wheel the locks pin)
-   "licenses": {"python": ["PSF-2.0"], "ffmpeg": ["GPL-3.0-or-later"], "wheel:psycopg": [...], ...},
+   "licenses": {"python": ["PSF-2.0"], "postgres-installer": ["PostgreSQL"], "wheel:psycopg": [...], ...},
    "sources": "sources/",                   (published with the release; `audit` lists what it must hold)
    "mac": true}                             (optional, default true: the Mac setup is published under
                                              the same release_id, so new backups name it)
@@ -26,8 +25,10 @@ People (the insightface/facenet locks and models) is added only when the recipe 
 without them the release offers Core, which still restores People catalogs for viewing.
 
 Each native payload must be byte-for-byte the file Windows setup pins (setup-common.ps1,
-install-python.ps1, install-ffmpeg.ps1): setup finds prepared payloads by that SHA-256 and never
-falls back to the network. Assets are published flat: `bundle_path` with `/` replaced by `--`.
+install-python.ps1): setup finds prepared payloads by that SHA-256 and never falls back to the
+network. FFmpeg is the exception: the release does not ship it, and setup downloads gyan.dev's
+pinned build at install time (install-ffmpeg.ps1), so the release carries no FFmpeg source
+obligation. Assets are published flat: `bundle_path` with `/` replaced by `--`.
 """
 import argparse
 import json
@@ -50,7 +51,8 @@ from installer.windows.build_shared import audit_windows_release  # noqa: E402
 
 PLATFORM = 'windows-x64'
 MINIMUM_WINDOWS = '10.0.22000'   # Windows 11 (install.ps1 refuses older builds)
-NATIVE = ('python', 'postgres-installer', 'postgres-binaries', 'ffmpeg')
+NATIVE = ('python', 'postgres-installer', 'postgres-binaries')
+NOT_SHIPPED = ('ffmpeg',)   # downloaded by setup from its pinned URL instead
 CORE_LOCKS = ('core', 'password', 'people-view')
 PEOPLE_LOCKS = ('insightface', 'facenet')
 AGREEMENT = ROOT / 'installer/legal/agreement.txt'
@@ -63,12 +65,10 @@ def setup_pins(root=ROOT):
     windows = Path(root) / 'installer/windows'
     common = (windows / 'setup-common.ps1').read_text(encoding='utf-8')
     python = (windows / 'install-python.ps1').read_text(encoding='utf-8')
-    ffmpeg = (windows / 'install-ffmpeg.ps1').read_text(encoding='utf-8')
     found = {
         'python': re.search(r"\$PythonNuGetSha256 = '([0-9A-Fa-f]{64})'", python),
         'postgres-installer': re.search(r"\$PostgresInstallerSha256 = '([0-9A-Fa-f]{64})'", common),
         'postgres-binaries': re.search(r"\$PostgresBinariesSha256 = '([0-9A-Fa-f]{64})'", common),
-        'ffmpeg': re.search(r"\$expected='([0-9A-Fa-f]{64})'", ffmpeg),
     }
     missing = [key for key, match in found.items() if not match]
     if missing:
@@ -153,27 +153,11 @@ def assemble(recipe_path, output):
 def missing_sources(manifest, payload_root):
     """What the release must publish as source but sources/ (beside payload/) lacks.
 
-    FFmpeg (GPL) needs its release source archive under sources/ffmpeg/, plus SOURCES.md there,
-    the hand-checked inventory of the libraries the build enables and where their sources are;
-    every wheel under a copyleft licence needs its source distribution under sources/. This is a
-    floor, not a completeness proof: release review checks the inventory by hand (#20, step 3)."""
+    Every wheel under a copyleft licence needs its source distribution under sources/. This is a
+    floor, not a completeness proof: release review checks the sources by hand (#20, step 3)."""
     sources = Path(payload_root).parent / 'sources'
     present = {normalized(p.name): p for p in sources.rglob('*') if p.is_file()} if sources.is_dir() else {}
     problems = []
-    ffmpeg = manifest.components.get('ffmpeg')
-    if ffmpeg:
-        version = re.search(r'ffmpeg-([0-9.]+)-', Path(ffmpeg['bundle_path']).name)
-        stem = normalized(f'ffmpeg-{version.group(1)}') if version else None
-        if not stem or not any(present.get(stem + suffix) for suffix in ('-tar-xz', '-tar-gz', '-tar-bz2')):
-            problems.append('ffmpeg: sources/ffmpeg/ lacks the FFmpeg release source archive '
-                            + (f'ffmpeg-{version.group(1)}.tar.xz' if version else ''))
-        inventory = sources / 'ffmpeg' / 'SOURCES.md'
-        if not inventory.is_file():
-            problems.append('ffmpeg: sources/ffmpeg/SOURCES.md, the inventory of enabled libraries and their sources, is missing')
-        elif not re.search(r'^Status: complete\b', inventory.read_text(encoding='utf-8'), re.M):
-            # Written by the release reviewer after checking every library's source by hand.
-            problems.append('ffmpeg: sources/ffmpeg/SOURCES.md does not say "Status: complete"; '
-                            'the bundled libraries\' sources are not confirmed')
     for item in manifest.components.values():
         if item['bundle_path'].endswith('.whl') and any(COPYLEFT.search(i) for i in item['license_ids']):
             name, version = Path(item['bundle_path']).name.split('-')[:2]
@@ -199,6 +183,9 @@ def audit(manifest, payload_root):
         item = manifest.components.get(cid)
         if item and item['sha256'] != pins[cid]:
             problems.append(f'{cid}: not the file Windows setup pins ({pins[cid]}); setup could not find it offline')
+    for cid in NOT_SHIPPED:
+        if cid in manifest.components:
+            problems.append(f'{cid}: must not be shipped; setup downloads it at install time')
     if 'mac_handover' not in doc:
         problems.append('mac_handover is missing: new Windows backups would not name the Mac setup')
     pinned = {}
