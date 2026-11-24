@@ -116,7 +116,10 @@ function Assert-SetupJournal($Journal, [string]$Root, [string]$Owner, [string]$F
     }
 }
 
-function Get-SetupDownload([string]$Url, [string]$Path, [string]$Sha256) {
+# -Network: a component the release deliberately does not ship (FFmpeg, from gyan.dev). With prepared
+# payloads it still comes from its pinned URL when the receipt lacks it, and is checked against the
+# same pin. Every other component keeps the rule: prepared payloads only, no network fallback.
+function Get-SetupDownload([string]$Url, [string]$Path, [string]$Sha256, [switch]$Network) {
     # PowerShell 5's per-chunk progress rendering can dominate large downloads.
     $ProgressPreference = 'SilentlyContinue'
     Assert-SetupPath $Path
@@ -125,13 +128,18 @@ function Get-SetupDownload([string]$Url, [string]$Path, [string]$Sha256) {
         $receipt = Get-Content -LiteralPath $env:FAMILYFOTO_PAYLOAD_RECEIPT -Raw | ConvertFrom-Json
         if ($receipt.schema_version -ne 1) { throw 'Unsupported installer payload receipt.' }
         $key = $Sha256.ToLowerInvariant()
-        $source = $receipt.payloads.PSObject.Properties[$key].Value
-        if (-not $source) { throw 'Required prepared payload is missing. Network fallback is disabled.' }
-        Assert-SetupPath $source
-        if ((Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash -ne $Sha256) {
-            throw 'Prepared payload was modified. Nothing was installed.'
+        # Strict mode: read .Value only from a property that exists.
+        $entry = $receipt.payloads.PSObject.Properties[$key]
+        $source = if ($entry) { $entry.Value } else { $null }
+        if ($source) {
+            Assert-SetupPath $source
+            if ((Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash -ne $Sha256) {
+                throw 'Prepared payload was modified. Nothing was installed.'
+            }
+            Copy-Item -LiteralPath $source -Destination $Path -ErrorAction Stop
+        } elseif (-not $Network) {
+            throw 'Required prepared payload is missing. Network fallback is disabled.'
         }
-        Copy-Item -LiteralPath $source -Destination $Path -ErrorAction Stop
     }
     if (-not (Test-Path -LiteralPath $Path)) {
         $partial = $Path + '.partial'

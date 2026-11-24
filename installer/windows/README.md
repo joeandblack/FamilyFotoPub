@@ -231,3 +231,39 @@ account's Modify permission; existing ACL entries are preserved. Links and hard
 links are refused. Backup files, catalog contents, PostgreSQL files and media
 bytes are not changed. An explicitly accepted non-ACL media disk such as exFAT
 does not receive an ACL repair.
+
+## Release builder
+
+`build_release.py` assembles and audits a Windows release of the shared installer from local,
+already-downloaded inputs (it never downloads or publishes), mirroring
+`installer/macos/build_release.py`:
+
+```powershell
+python -m installer.windows.build_release assemble --recipe recipe.json --output release
+python -m installer.windows.build_release audit --release release
+python -m installer.windows.build_release descriptor --release release --engine engine.zip --mode online --notices "..." --output bootstrap-online.json
+python -m installer.windows.build_release bundle --release release --engine engine.zip --output offline
+```
+
+Build `engine.zip` and `FamilyFotoSetup.exe` with `build_shared.py` from a clean checkout of the
+release tag, so the shipped code is exactly that commit. The audit refuses a release whose native
+payloads are not the files the setup scripts pin (setup finds prepared payloads by SHA-256 and has
+no network fallback), whose locked wheels are missing, which lacks the Mac handover, or whose
+copyleft sources are missing. It also refuses a release that ships FFmpeg: the Windows release
+does not include it, and `install-ffmpeg.ps1` downloads gyan.dev's pinned build during setup, even
+from prepared or offline payloads (`Get-SetupDownload -Network`; FFmpeg is the only such
+component). An offline installation therefore needs internet for that one step.
+
+**This makes every Windows installation and restore depend on gyan.dev.** Each release pins one
+exact file (`ffmpeg-9.0.2-essentials_build.zip` for 0.1.0). Installing or restoring that release
+later downloads that file again at that time. If gyan.dev removes or replaces it, setup stops at
+the FFmpeg step with the download or checksum error, and that release can no longer install; there
+is no fallback. The way out is a later FamilyFoto release, which pins a build gyan.dev still
+serves. Whether that release can restore a backup made by the older one is its own restore
+question, so check it before relying on this. Accepted for the betas; an FFmpeg built for FamilyFoto with complete published sources would end
+the dependency.
+
+The password and
+People-view locks are `installer/locks/password-windows-x64.txt` and
+`installer/locks/people-view-windows-x64.txt`; the People provider closures are not locked for
+Windows yet, so a Windows release offers Core.

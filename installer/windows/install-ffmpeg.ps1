@@ -9,7 +9,13 @@ $unpack=Join-Path $root "temp\ffmpeg-$version-extracted"
 $bin=Join-Path $root 'runtime\ffmpeg\bin'
 if (Test-Path -LiteralPath $bin) {throw 'FFmpeg already provisioned; review an upgrade separately.'}
 New-Item -ItemType Directory -Path (Split-Path $archive) -Force | Out-Null
-Get-SetupDownload "https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-$version-essentials_build.zip" $archive $expected
+# The release does not include FFmpeg: setup downloads gyan.dev's build here, even when installing
+# from prepared or offline payloads, and checks it against the pinned SHA-256.
+try {
+    Get-SetupDownload "https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-$version-essentials_build.zip" $archive $expected -Network
+} catch {
+    throw "FFmpeg is downloaded from www.gyan.dev during setup and could not be: $($_.Exception.Message) Connect to the internet and choose Try again."
+}
 if (Test-Path -LiteralPath $unpack) {throw 'Extraction directory exists; inspect it before retrying.'}
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip=[IO.Compression.ZipFile]::OpenRead($archive)
