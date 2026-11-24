@@ -27,8 +27,9 @@ def audit_windows_release(manifest, payload_root):
         raise ValueError('Core and restored-People view locks are required')
     if 'people' in manifest.document['features']:
         people = manifest.plan(['core', 'people'], 'windows-x64', manifest.document['minimum_os'])
-        if not {'insightface', 'facenet'}.issubset({item.get('lock_role') for item in people}):
-            raise ValueError('Both selected People provider locks are required')
+        # Provider libraries come from PyPI at install time (face_detect/cli/setup.py), never the release.
+        if {'insightface', 'facenet'} & {item.get('lock_role') for item in people}:
+            raise ValueError('People provider libraries are installed from PyPI; the release must not ship their locks')
         for provider in ('insightface', 'facenet'):
             matches = [item for item in people if item.get('model_provider') == provider]
             if len(matches) != 1 or not matches[0].get('model_identity'):

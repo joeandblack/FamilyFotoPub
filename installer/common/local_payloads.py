@@ -20,6 +20,12 @@ def payload(digest):
     return path
 
 
+# People's provider libraries are not shipped: opencv-python and others bundle native libraries
+# whose sources a release cannot publish. Setup installs them from PyPI by hash instead
+# (face_detect/cli/setup.py). Every other role stays prepared-payloads-only.
+ONLINE_ROLES = ('insightface', 'facenet')
+
+
 def pip_arguments(role):
     receipt = os.environ.get('FAMILYFOTO_PAYLOAD_RECEIPT')
     if not receipt:
@@ -27,6 +33,8 @@ def pip_arguments(role):
     doc = json.loads(plain_path(receipt).read_text(encoding='utf-8'))
     if doc.get('schema_version') != 1 or doc.get('stage') != 'materialized':
         raise ValueError('Dependencies require a materialized payload receipt')
+    if role in ONLINE_ROLES and role not in doc.get('locks', {}):
+        return []  # the caller installs this role from PyPI with its hash-pinned lock
     wheels = plain_path(doc['wheelhouse'])
     lock = plain_path(doc['locks'][role]['path'])
     if file_digest(lock) != doc['locks'][role]['sha256']:

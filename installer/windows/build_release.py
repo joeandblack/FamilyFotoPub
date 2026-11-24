@@ -21,8 +21,11 @@ The recipe names local, already-downloaded inputs; nothing here downloads or pub
    "mac": true}                             (optional, default true: the Mac setup is published under
                                              the same release_id, so new backups name it)
 
-People (the insightface/facenet locks and models) is added only when the recipe names them;
-without them the release offers Core, which still restores People catalogs for viewing.
+People is added when the recipe names the two models ("models": {"insightface": ..., "facenet": ...}).
+The release ships only the models: People's provider libraries (opencv-python, onnxruntime, torch
+and the rest) bundle native libraries whose sources a release cannot publish, so setup installs
+them from PyPI by hash (face_detect/cli/setup.py). Without models the release offers Core, which
+still restores People catalogs for viewing.
 
 Each native payload must be byte-for-byte the file Windows setup pins (setup-common.ps1,
 install-python.ps1): setup finds prepared payloads by that SHA-256 and never falls back to the
@@ -86,7 +89,9 @@ def assemble(recipe_path, output):
         raise ValueError('Output already exists')
     payload = output / 'payload'
     payload.mkdir(parents=True)
-    people = all(role in recipe.get('locks', {}) for role in PEOPLE_LOCKS) and 'models' in recipe
+    people = 'models' in recipe
+    if any(role in recipe.get('locks', {}) for role in PEOPLE_LOCKS):
+        raise ValueError('People provider locks are not shipped; setup installs them from PyPI')
     components, features = [], {'core': [], **({'people': []} if people else {})}
     release_url = RELEASE_BASE + '/' + quote(recipe['release_id'], safe='')
 
@@ -108,8 +113,8 @@ def assemble(recipe_path, output):
         add(cid, source, f'runtime/{source.name}', 'core', licenses.get(cid, []))
     wheelhouse = {file_sha256(w): w for w in sorted(path(recipe['wheels']).glob('*.whl'))}
     placed = set()
-    for role in (*CORE_LOCKS, *(PEOPLE_LOCKS if people else ())):
-        feature = 'core' if role in CORE_LOCKS else 'people'
+    for role in CORE_LOCKS:
+        feature = 'core'
         lock = path(recipe['locks'][role])
         add('lock-' + role, lock, f'locks/{role}.txt', feature, ['FamilyFoto'], lock_role=role)
         for digest, pin in sorted(lock_pins(lock).items()):

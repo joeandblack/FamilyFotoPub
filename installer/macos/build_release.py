@@ -12,8 +12,9 @@ The recipe names local, already-built inputs; nothing here downloads or publishe
    "application": "FamilyFoto-2026.12.1.zip",                 (installer/release.py build)
    "runtimes": {"python": "python.zip", "postgres": "postgres.zip",
                 "ffmpeg": "ffmpeg.zip", "setup-window": "setup-window.zip"},
-   "locks": {"core": "installer/locks/core-macos-arm64.txt", "password": ..., "people-view": ...,
-             "insightface": ..., "facenet": ...},
+   "locks": {"core": "installer/locks/core-macos-arm64.txt", "password": ..., "people-view": ...},
+            (People's provider libraries are not shipped: setup installs them from PyPI by hash,
+             from installer/locks/insightface-macos-arm64.txt and facenet-macos-arm64.txt)
    "wheels": "wheelhouse/",                                   (every wheel the locks pin)
    "models": {"insightface": "buffalo_l.zip", "facenet": "20180402-114759-vggface2.pt"},
    "licenses": {"application": ["FamilyFoto"], "python": ["PSF-2.0"], "wheel:insightface": ["MIT"], ...},
@@ -187,8 +188,10 @@ def assemble(recipe_path, output):
             licenses.get(role, []), runtime_role=role)
     wheelhouse = {file_sha256(w): w for w in sorted(path(recipe['wheels']).glob('*.whl'))}
     placed = set()
-    for role in (*CORE_LOCKS, *PEOPLE_LOCKS):
-        feature = 'core' if role in CORE_LOCKS else 'people'
+    if any(role in recipe.get('locks', {}) for role in PEOPLE_LOCKS):
+        raise ValueError('People provider locks are not shipped; setup installs them from PyPI')
+    for role in CORE_LOCKS:
+        feature = 'core'
         lock = path(recipe['locks'][role])
         add('lock-' + role, lock, f'locks/{role}.txt', feature, ['FamilyFoto'], lock_role=role)
         for digest, pin in sorted(lock_pins(lock).items()):
@@ -251,7 +254,8 @@ def audit(manifest, payload_root):
     if 'people' in doc['features']:
         people = manifest.plan(['core', 'people'], PLATFORM, minimum or MINIMUM_MACOS)
         locks = {c.get('lock_role') for c in people}
-        problems += [f'People lacks the {r} lock' for r in PEOPLE_LOCKS if r not in locks]
+        # Provider libraries come from PyPI at install time (face_detect/cli/setup.py), never the release.
+        problems += [f'People must not ship the {r} lock; setup installs it from PyPI' for r in PEOPLE_LOCKS if r in locks]
         for provider in PEOPLE_LOCKS:
             models = [c for c in people if c.get('model_provider') == provider]
             if len(models) != 1 or models[0].get('model_identity') != MODELS[provider]['model']:

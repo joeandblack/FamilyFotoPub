@@ -150,9 +150,10 @@ def recipe(tmp_path, monkeypatch, *, source=True, wheel_license='MIT', sources=T
     # Create shared bytes once: recreating a ZIP can change its timestamp/hash
     # between role locks even when its package contents are identical.
     shared = wheel(wheels / 'shared_pkg-2.0-py3-none-any.whl', 'shared_pkg', '2.0')
-    for role in ('core', 'password', 'people-view', 'insightface', 'facenet'):
+    # People's provider libraries are not shipped (setup installs them from PyPI), so the core locks only.
+    for role in ('core', 'password', 'people-view'):
         w = wheel(wheels / f'{role.replace("-", "_")}_pkg-1.0-py3-none-any.whl', role.replace('-', '_') + '_pkg', '1.0',
-                  wheel_license if role == 'insightface' else 'MIT')
+                  wheel_license if role == 'people-view' else 'MIT')
         locks[role] = tmp_path / f'{role}.txt'
         locks[role].write_text(f'{role}-pkg==1.0 --hash=sha256:{build_release.file_sha256(w)}\n'
                                f'shared-pkg==2.0 --hash=sha256:{build_release.file_sha256(shared)}\n')
@@ -193,12 +194,13 @@ def test_assembled_release_passes_the_audit(tmp_path, monkeypatch):
     roles = {c.get('runtime_role') for c in doc['components']}
     assert set(EXECUTABLES) <= roles
     wheels = [c for c in doc['components'] if c['bundle_path'].endswith('.whl')]
-    assert len(wheels) == 6  # five role packages plus one shared wheel, placed once
+    assert len(wheels) == 4  # three role packages plus one shared wheel, placed once
     assets = json.loads((release / 'assets.json').read_text())
     assert assets['runtime--python.zip'] == 'runtime/python.zip'
     assert all(c['url'].endswith('/' + c['bundle_path'].replace('/', '--')) for c in doc['components'])
     people = {c['id'] for c in manifest.plan(['core', 'people'], 'macos-arm64', '27.0')}
-    assert {'model-insightface', 'model-facenet', 'lock-insightface', 'lock-facenet'} <= people
+    assert {'model-insightface', 'model-facenet'} <= people
+    assert not {'lock-insightface', 'lock-facenet'} & people  # installed from PyPI by hash instead
 
 
 def test_mac_release_names_the_windows_setup_of_the_same_release(tmp_path, monkeypatch):
@@ -236,20 +238,20 @@ def test_release_without_its_sources_fails_the_audit(tmp_path, monkeypatch):
 
 def test_copyleft_wheel_needs_its_source_distribution(tmp_path, monkeypatch):
     manifest, release = assembled(tmp_path, monkeypatch, wheel_license='GNU Lesser General Public License v3 (LGPLv3)')
-    with pytest.raises(ValueError, match='lacks the source distribution of insightface_pkg 1.0'):
+    with pytest.raises(ValueError, match='lacks the source distribution of people_view_pkg 1.0'):
         build_release.audit(manifest, release / 'payload')
     sources = release / 'sources'
-    for sidecar in ('insightface_pkg-1.0.tar.gz.sha256', 'insightface_pkg-1.0.tar.gz.asc', 'insightface_pkg-1.0.tar.gz.part'):
+    for sidecar in ('people_view_pkg-1.0.tar.gz.sha256', 'people_view_pkg-1.0.tar.gz.asc', 'people_view_pkg-1.0.tar.gz.part'):
         (sources / sidecar).write_text('not the archive')
         with pytest.raises(ValueError, match='lacks the source distribution'):
             build_release.audit(manifest, release / 'payload')
-    (sources / 'insightface_pkg-1.0.tar.gz').write_bytes(b'not an archive')
+    (sources / 'people_view_pkg-1.0.tar.gz').write_bytes(b'not an archive')
     with pytest.raises(ValueError, match='lacks the source distribution'):
         build_release.audit(manifest, release / 'payload')
-    (sources / 'insightface_pkg-1.0.tar.gz').unlink()
-    with tarfile.open(sources / 'insightface-pkg-1.0.tar.gz', 'w:gz') as archive:  # any spelling of the name
-        data = b'[project]\nname = "insightface_pkg"\n'
-        info = tarfile.TarInfo('insightface_pkg-1.0/pyproject.toml')
+    (sources / 'people_view_pkg-1.0.tar.gz').unlink()
+    with tarfile.open(sources / 'people-view-pkg-1.0.tar.gz', 'w:gz') as archive:  # any spelling of the name
+        data = b'[project]\nname = "people_view_pkg"\n'
+        info = tarfile.TarInfo('people_view_pkg-1.0/pyproject.toml')
         info.size = len(data)
         archive.addfile(info, io.BytesIO(data))
     build_release.audit(manifest, release / 'payload')
@@ -260,15 +262,25 @@ def test_terms_cover_what_a_release_bundles():
     assert text.startswith('FamilyFoto Terms and Third-Party Notices\n')
     for required in ('GPL-3.0', 'WITHOUT ANY WARRANTY', 'Python Software Foundation', 'PostgreSQL License',
                      'FFmpeg', 'x264', 'LGPL', 'corresponding source', 'buffalo_l', 'VGGFace2',
-                     'NON-COMMERCIAL RESEARCH USE ONLY', 'https://github.com/joeandblack/FamilyFotoPub/releases'):
+                     'NON-COMMERCIAL RESEARCH USE ONLY', 'https://github.com/joeandblack/FamilyFotoPub/releases',
+                     'pypi.org'):
         assert required in text, required
     assert all(ord(c) < 128 for c in text)  # plain ASCII: shows the same in every setup window
 
 
+def test_people_provider_locks_are_not_shipped(tmp_path, monkeypatch):
+    path = recipe(tmp_path, monkeypatch)
+    doc = json.loads(path.read_text())
+    doc['locks']['insightface'] = doc['locks']['core']
+    path.write_text(json.dumps(doc))
+    with pytest.raises(ValueError, match='installs them from PyPI'):
+        build_release.assemble(path, tmp_path / 'release')
+
+
 def test_missing_locked_wheel_is_refused_at_assembly(tmp_path, monkeypatch):
     path = recipe(tmp_path, monkeypatch)
-    next((tmp_path / 'wheelhouse').glob('facenet*.whl')).unlink()
-    with pytest.raises(ValueError, match='wheelhouse lacks facenet-pkg'):
+    next((tmp_path / 'wheelhouse').glob('password*.whl')).unlink()
+    with pytest.raises(ValueError, match='wheelhouse lacks password-pkg'):
         build_release.assemble(path, tmp_path / 'release')
 
 
@@ -322,7 +334,7 @@ def test_wheel_license_falls_back_to_the_recipe(tmp_path, monkeypatch):
     path.mkdir()
     r = recipe(path, monkeypatch, wheel_license=None)
     doc = json.loads(r.read_text())
-    doc['licenses']['wheel:insightface-pkg'] = ['MIT']
+    doc['licenses']['wheel:people-view-pkg'] = ['MIT']
     r.write_text(json.dumps(doc))
     manifest = build_release.assemble(r, path / 'release')
     build_release.audit(manifest, path / 'release/payload')

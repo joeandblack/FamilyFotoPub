@@ -53,7 +53,12 @@ platform `windows-x64`, agreement path and feature map. Each component has:
 URL is not a published release. `features.core` includes the application, Python,
 both PostgreSQL primary/secondary distribution inputs, FFmpeg, password-check wheels,
 core closure and People-view closure used by restored catalogs. `features.people`
-adds the qualified inference closures and exact model assets. Dependency ordering
+adds the exact model assets only. People's provider libraries are never shipped (opencv-python and
+others bundle native libraries whose sources a release cannot publish): with no provider lock in
+the receipt, `pip_arguments` returns nothing for `insightface`/`facenet` and
+`face_detect/cli/setup.py` installs them from PyPI by hash (Windows:
+`face_detect/config/dependencies/<provider>-windows-amd64.txt`; Mac:
+`installer/locks/<provider>-macos-arm64.txt`), also during an offline installation. Dependency ordering
 can be expressed via component IDs. Shared artifacts should be declared once.
 
 Application ZIPs may have application files at the ZIP root or the existing release

@@ -141,3 +141,32 @@ def test_real_setup_pins_and_windows_locks_agree():
     assert all(digest in script for digest in password)
     view = wr.lock_pins(ROOT / 'installer/locks/people-view-windows-x64.txt')
     assert set(view) == set(re for re in wr.lock_pins(ROOT / 'requirements-faces-windows.txt'))
+
+
+def test_people_release_ships_models_but_not_provider_libraries(recipe, monkeypatch):
+    path, out = recipe
+    work = path.parent
+    (work / 'models').mkdir()
+    (work / 'models/buffalo_l.zip').write_bytes(b'insightface model')
+    (work / 'models/recognizer.pt').write_bytes(b'facenet model')
+    digests = {'insightface': hashlib.sha256(b'insightface model').hexdigest(),
+               'facenet': hashlib.sha256(b'facenet model').hexdigest()}
+    monkeypatch.setattr(wr, 'model_digest', lambda provider: digests[provider])
+    doc = json.loads(path.read_text())
+    doc['models'] = {'insightface': 'models/buffalo_l.zip', 'facenet': 'models/recognizer.pt'}
+    doc['licenses'].update({'model-insightface': ['research only'], 'model-facenet': ['research only']})
+    path.write_text(json.dumps(doc))
+    manifest = wr.assemble(path, out)
+    wr.audit(manifest, out / 'payload')
+    people = {c['id'] for c in manifest.plan(['core', 'people'], 'windows-x64', '10.0.26300')}
+    assert {'model-insightface', 'model-facenet'} <= people
+    assert not any(c.get('lock_role') in ('insightface', 'facenet') for c in manifest.components.values())
+
+
+def test_recipe_with_provider_locks_is_refused(recipe):
+    path, out = recipe
+    doc = json.loads(path.read_text())
+    doc['locks']['insightface'] = doc['locks']['core']
+    path.write_text(json.dumps(doc))
+    with pytest.raises(ValueError, match='installs them from PyPI'):
+        wr.assemble(path, out)
