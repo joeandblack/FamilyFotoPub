@@ -9,7 +9,7 @@ import tempfile
 
 from .space import directory_identity
 from .media_copy import sync_directory
-from .windows_handover import RECEIPT, read_release, write_windows_handover
+from .windows_handover import RECEIPT, read_release, write_windows_handover, write_source_handover
 
 FOLDER = 'restore-on-mac'
 SOURCE = Path(__file__).resolve().parents[2] / 'installer/macos/handover'
@@ -144,4 +144,5 @@ def write_handover(backup, receipt_path=None):
                                                 'has local changes or cannot be identified, so it will refuse to run')
         _publish(folder, LAUNCHER, launcher(commit), 0o700)
     sync_directory(folder)
-    write_windows_handover(backup, receipt_path)
+    if not write_windows_handover(backup, receipt_path):
+        write_source_handover(backup, source_commit())

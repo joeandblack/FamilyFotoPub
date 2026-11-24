@@ -51,6 +51,49 @@ def test_refuses_file_as_directory(tmp_path):
     assert target.read_text() == 'keep'
 
 
+@pytest.mark.parametrize('commit', ['', 'main', 'a' * 39, 'A' * 40, "';exit;"])
+def test_reject_unpinned_commit(commit):
+    result = subprocess.run(['powershell.exe', '-NoProfile', '-Command',
+        f". {quote(SCRIPT)}; Assert-RestoreCommit {quote(commit)}"], capture_output=True, text=True)
+    assert result.returncode != 0
+    assert 'no verified code version' in result.stderr
+
+
+def test_fetch_exact_commit_not_branch_tip(tmp_path):
+    repo = tmp_path / 'repo'
+    repo.mkdir()
+    def git(*args):
+        return subprocess.run(['git', '-C', str(repo), *args], check=True, capture_output=True, text=True).stdout.strip()
+    git('init', '-q')
+    (repo / 'version.txt').write_text('first')
+    git('add', '.')
+    git('-c', 'user.name=test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'first')
+    commit = git('rev-parse', 'HEAD')
+    (repo / 'version.txt').write_text('second')
+    git('add', '.')
+    git('-c', 'user.name=test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'second')
+    target = tmp_path / 'download'
+    rewrite = f'url.{repo.as_uri()}.insteadOf=https://github.com/joeandblack/FamilyFotoPub.git'
+    command = (f". {quote(SCRIPT)}; Get-RestoreSource git @('-c',{quote(rewrite)}) "
+               f"{quote(target)} {quote(commit)}")
+    result = subprocess.run(['powershell.exe', '-NoProfile', '-Command', command], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert (target / 'version.txt').read_text() == 'first'
+    assert subprocess.check_output(['git', '-C', str(target), 'rev-parse', 'HEAD'], text=True).strip() == commit
+
+
+@pytest.mark.parametrize('failure', ['init', 'fetch', 'checkout', 'rev-parse', 'mismatch'])
+def test_download_errors_never_fall_back(tmp_path, failure):
+    command = (f". {quote(SCRIPT)}; function FakeGit {{ "
+               f"if ($args -contains '{failure}') {{$global:LASTEXITCODE=1}} "
+               "else {$global:LASTEXITCODE=0}; "
+               "if ($args -contains 'rev-parse') {Write-Output ('b'*40)} }; "
+               f"Get-RestoreSource FakeGit @() {quote(tmp_path / 'unused')} {quote('a'*40)}")
+    result = subprocess.run(['powershell.exe', '-NoProfile', '-Command', command], capture_output=True, text=True)
+    assert result.returncode != 0
+    assert not (tmp_path / 'unused').exists()
+
+
 @pytest.mark.parametrize('gh', ['', 'C:/Program Files/GitHub CLI/gh.exe'])
 def test_https_credential_arguments(gh):
     import json

@@ -1,5 +1,5 @@
 <#
-Run in an administrator PowerShell window. Downloads release/0.1 into a fresh
+Run in an administrator PowerShell window. Downloads the backup's exact commit into a fresh
 installation folder, then opens Windows Restore setup. No restore runs until
 the user submits the setup window. Git is required. The public repository
 downloads over anonymous HTTPS; no GitHub account is needed.
@@ -7,6 +7,25 @@ downloads over anonymous HTTPS; no GitHub account is needed.
 [CmdletBinding()]
 param([string]$InstallDirectory)
 $ErrorActionPreference = 'Stop'
+$commit = ''
+
+function Assert-RestoreCommit([string]$Commit) {
+    if ($Commit -cnotmatch '^[0-9a-f]{40}$') {
+        throw 'This launcher has no verified code version. Obtain the matching FamilyFoto release; no files were downloaded.'
+    }
+}
+
+function Get-RestoreSource([string]$Git, [string[]]$Options, [string]$Source, [string]$Commit) {
+    Assert-RestoreCommit $Commit
+    & $Git @Options init -- $Source
+    if ($LASTEXITCODE -ne 0) { throw 'Could not initialize the download folder.' }
+    & $Git @Options -C $Source fetch --depth 1 https://github.com/joeandblack/FamilyFotoPub.git $Commit
+    if ($LASTEXITCODE -ne 0) { throw 'Exact commit download failed. Check the network; no branch fallback is allowed.' }
+    & $Git @Options -C $Source checkout --detach $Commit
+    if ($LASTEXITCODE -ne 0) { throw 'Exact commit checkout failed.' }
+    $actual = & $Git @Options -C $Source rev-parse --verify 'HEAD^{commit}'
+    if ($LASTEXITCODE -ne 0 -or $actual -cne $Commit) { throw 'Downloaded commit differs from the backup.' }
+}
 
 function Get-RestoreGitArguments([string]$GhPath) {
     # Command-local helpers only: never store a token or change global Git settings.
@@ -51,6 +70,7 @@ function Assert-FreshRestoreFolder([string]$Path, [string]$Launcher) {
 
 # Dot-sourcing exposes only the read-only validation helper for fixture tests.
 if ($MyInvocation.InvocationName -eq '.') { return }
+Assert-RestoreCommit $commit
 if ($env:OS -ne 'Windows_NT') { throw 'Run this launcher on Windows.' }
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = New-Object Security.Principal.WindowsPrincipal($identity)
@@ -78,14 +98,11 @@ $stage = Join-Path ([IO.Path]::GetTempPath()) ('familyfoto-download-' + [guid]::
 $source = Join-Path $stage 'source'
 New-Item -ItemType Directory -Path $stage | Out-Null
 try {
-    Write-Host 'Downloading FamilyFoto release/0.1 from GitHub...'
+    Write-Host "Downloading FamilyFoto commit $commit from GitHub..."
     $oldPrompt = $env:GIT_TERMINAL_PROMPT
     try {
         $env:GIT_TERMINAL_PROMPT = '0'
-        & $git @gitOptions clone --depth 1 --single-branch --branch release/0.1 https://github.com/joeandblack/FamilyFotoPub.git $source
-        if ($LASTEXITCODE -ne 0) {
-            throw 'Download failed. Check the network connection, then retry.'
-        }
+        Get-RestoreSource $git $gitOptions $source $commit
     } finally {
         $env:GIT_TERMINAL_PROMPT = $oldPrompt
     }
@@ -102,7 +119,7 @@ try {
     }
 }
 Write-Host "Installation folder: $target"
-Write-Host 'Opening Restore setup. Select your backup, recovery key and media destination there.'
+Write-Host 'Opening Restore setup. Select your backup, backup password and media destination there.'
 $shell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
 & $shell -NoProfile -File (Join-Path $target 'installer\windows\install.ps1') -Mode Restore
 if ($LASTEXITCODE -ne 0) {
