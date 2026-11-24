@@ -111,7 +111,7 @@ does not publish binaries, embed GitHub credentials or alter public repository a
 Windows release manifests provide `minimum_os` and `setup_url`, the exact official
 GitHub `/releases/download/<release_id>/FamilyFotoSetup.exe` URL. The Windows adapter
 records that link with its release receipt. New backups then include
-`restore-on-windows/README.txt`, with the pinned link, offline-package instructions,
+`restore-on-windows/README.txt`, with the pinned link,
 `--backup` preselection and the existing restore-resume command. Old backups and
 manual installations without that receipt are unchanged. No executable from the
 backup is automatically trusted or run. Publishing/replacing an asset under an

@@ -26,9 +26,12 @@ new library and for a restore from a backup alike.
 
 1. **Online installation.** Setup installs FamilyFoto's own code, then each third-party component
    it needs (Python, PostgreSQL, FFmpeg, Python libraries, and, if chosen, People). For each
-   component it first looks in the installation's temp folder and uses the file there if it is
-   present and correct; otherwise it downloads it and stores it there. The temp folder is kept
-   until setup succeeds, so an interrupted installation resumes without downloading again.
+   component it first looks in the setup's temp folder and uses the file there if it is present
+   and correct; otherwise it downloads it and stores it there, so an interrupted installation
+   resumes without downloading again. Today that folder is the per-user setup cache (Mac
+   `~/Library/Application Support/FamilyFoto/Setup/<manifest>`, Windows
+   `%LOCALAPPDATA%\FamilyFoto\Setup\<manifest>`), plus the installation's `temp` folder for
+   Windows FFmpeg. The target is to remove it once setup succeeds (see the known gaps below).
 2. **Offline installation.** One file (a zip, dmg or msi/exe) carries FamilyFoto and the
    third-party binaries it needs. Opening it fills the temp folder, then the online installation
    runs as above and finds everything it needs there. Third-party *source code* is not needed to
@@ -50,10 +53,12 @@ them (`installer/windows/install-ffmpeg.ps1`, `face_detect/cli/setup.py`).
 **Current release: online installation only.** v0.1.0-beta releases publish the online
 installers (FamilyFotoSetup.dmg, FamilyFotoSetup.exe) and their payloads. The offline DMG and
 bundle are built only as internal test vehicles: they run the same installation with the temp
-folder already filled. Known gaps for a later offline release, not investigated yet:
-- rule 4 makes an offline installation need the internet for those components;
-- People's libraries go straight to PyPI (pip's own cache aside) instead of checking the temp
-  folder first.
+folder already filled. Known gaps, not investigated yet:
+- the setup cache is not removed after a successful setup yet (about 0.9 to 1.3 GB stays behind);
+- for a later offline release: rule 4 makes an offline installation need the internet for those
+  components; People's libraries go straight to PyPI (pip's own cache aside) instead of checking
+  the temp folder first; and the Windows offline test vehicle is a folder (the bundle and its
+  FamilyFotoSetup.exe), not yet the one file rule 2 describes.
 
 ## Contents and Boundaries
 
