@@ -42,16 +42,3 @@ Described in
 | Script | Purpose |
 |---|---|
 | `consolidate_import_membership.py` | Single-import-policy migration (release notes 2026-10-24). Back up first; all workers idle. |
-
-## Archive
-
-`archive/native-people-cutover/` holds the completed Windows native People
-cutover scripts, kept as a historical record: `activate_native_catalog`,
-`finalize_people_migration`, `prepare_live_deployment`,
-`publish_people_candidate`, `validate_live_app`, `validate_native_cutover`,
-`verify_native_live`, `verify_people_migration`. They were moved here with only
-path adjustments (repository root, and the `prepare_people_migration` sibling
-import); behavior is unchanged. No document references them; the migration
-doc above covers only the `prepare_people_migration` and
-`migrate_people_embeddings` steps. Do not rerun against a live library without
-reading each script's docstring and taking a backup.
