@@ -328,6 +328,23 @@ def test_wheel_license_falls_back_to_the_recipe(tmp_path, monkeypatch):
     build_release.audit(manifest, path / 'release/payload')
 
 
+def test_descriptor_notice_matches_the_mode(tmp_path, monkeypatch):
+    _, release = assembled(tmp_path, monkeypatch)
+    engine = tmp_path / 'engine.zip'
+    engine.write_bytes(b'engine fixture')
+    for mode in ('online', 'offline'):
+        out = tmp_path / f'{mode}.json'
+        build_release.main(['descriptor', '--release', str(release), '--engine', str(engine),
+                            '--mode', mode, '--output', str(out)])
+        notice = json.loads(out.read_text())['bootstrap_notices']
+        # The offline app carries Python and the engine; only the online app downloads them.
+        assert ('downloads' in notice) == (mode == 'online')
+        assert 'Python 3.12 (PSF License)' in notice
+    build_release.main(['descriptor', '--release', str(release), '--engine', str(engine),
+                        '--mode', 'offline', '--notices', 'Custom.', '--output', str(out)])
+    assert json.loads(out.read_text())['bootstrap_notices'] == 'Custom.'
+
+
 def test_descriptor_and_offline_bundle(tmp_path, monkeypatch):
     manifest, release = assembled(tmp_path, monkeypatch)
     engine = tmp_path / 'engine.zip'
