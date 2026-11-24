@@ -75,16 +75,14 @@ def test_assembled_release_passes_audit_and_names_both_setups(recipe):
     assert doc['minimum_os'] == wr.MINIMUM_WINDOWS and 'people' not in doc['features']
     ids = {c['id'] for c in manifest.components.values()}
     assert {'application', *wr.NATIVE, 'lock-core', 'lock-password', 'lock-people-view'} <= ids
-    # The password lock's wheel is shared with core and shipped once.
-    assert sum(c['bundle_path'].startswith('wheels/fastapi') for c in manifest.components.values()) == 1
+    # Releases ship no wheels: setup installs every lock from PyPI.
+    assert not any(c['bundle_path'].endswith('.whl') for c in manifest.components.values())
     assert json.loads((out / 'assets.json').read_text())['runtime--python.3.12.10.nupkg'] == 'runtime/python.3.12.10.nupkg'
 
 
 @pytest.mark.parametrize('problem,expected', [
     ('pin', 'not the file Windows setup pins'),
     ('shipped-ffmpeg', 'ffmpeg: must not be shipped'),
-    ('psycopg-c', 'source distribution of psycopg-c'),
-    ('sdist', 'source distribution of psycopg'),
     ('mac', 'mac_handover is missing'),
 ])
 def test_audit_refusals(recipe, monkeypatch, problem, expected):
@@ -98,22 +96,11 @@ def test_audit_refusals(recipe, monkeypatch, problem, expected):
         monkeypatch.setattr(wr, 'NATIVE', (*wr.NATIVE, 'ffmpeg'))
         pins = wr.setup_pins()
         monkeypatch.setattr(wr, 'setup_pins', lambda root=None: {**pins, 'ffmpeg': hashlib.sha256(b'gpl build').hexdigest()})
-    if problem == 'psycopg-c':
-        (work / 'sources/psycopg_c-3.2.9.tar.gz').unlink()
-    if problem == 'sdist':
-        (work / 'sources/psycopg-3.2.9.tar.gz').unlink()
     if problem == 'mac':
         doc = json.loads(path.read_text()); doc['mac'] = False; path.write_text(json.dumps(doc))
     manifest = wr.assemble(path, out)
     with pytest.raises(ValueError, match=expected):
         wr.audit(manifest, out / 'payload')
-
-
-def test_wheel_missing_from_wheelhouse_is_refused(recipe):
-    path, out = recipe
-    next((path.parent / 'wheelhouse').glob('numpy-*')).unlink()
-    with pytest.raises(ValueError, match='wheelhouse lacks numpy'):
-        wr.assemble(path, out)
 
 
 def test_descriptor_and_offline_bundle(recipe, tmp_path):
@@ -134,13 +121,16 @@ def test_descriptor_and_offline_bundle(recipe, tmp_path):
 def test_real_setup_pins_and_windows_locks_agree():
     pins = wr.setup_pins(ROOT)
     assert set(pins) == set(wr.NATIVE)
-    password = wr.lock_pins(ROOT / 'installer/locks/password-windows-x64.txt')
-    core = wr.lock_pins(ROOT / 'installer/locks/core-windows-x64.txt')
-    assert password and set(password) <= set(core)  # setup-password.ps1 installs these from the core wheelhouse
-    script = (ROOT / 'installer/windows/setup-password.ps1').read_text(encoding='utf-8').lower()
-    assert all(digest in script for digest in password)
-    view = wr.lock_pins(ROOT / 'installer/locks/people-view-windows-x64.txt')
-    assert set(view) == set(re for re in wr.lock_pins(ROOT / 'requirements-faces-windows.txt'))
+    from installer.macos.build_release import lock_pins
+    password = lock_pins(ROOT / 'installer/locks/password-windows-x64.txt')
+    core = lock_pins(ROOT / 'installer/locks/core-windows-x64.txt')
+    assert password and set(password) <= set(core)
+    # setup-password.ps1 pins the same files and downloads them from PyPI even with a receipt (-Network).
+    script = (ROOT / 'installer/windows/setup-password.ps1').read_text(encoding='utf-8')
+    assert all(digest in script.lower() for digest in password)
+    assert '$wheel.Sha256 -Network' in script
+    view = lock_pins(ROOT / 'installer/locks/people-view-windows-x64.txt')
+    assert set(view) == set(lock_pins(ROOT / 'requirements-faces-windows.txt'))
 
 
 def test_people_release_ships_models_but_not_provider_libraries(recipe, monkeypatch):

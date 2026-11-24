@@ -71,7 +71,8 @@ function New-SetupPasswordRuntime([string]$Root, [int]$Owner = $PID) {
     $wheels = Join-Path $temp 'password-check-wheels'
     Assert-SetupPath $wheels
     New-Item -ItemType Directory -Path $wheels -Force | Out-Null
-    foreach ($wheel in $PasswordCheckWheels) { Get-SetupDownload $wheel.Url (Join-Path $wheels $wheel.File) $wheel.Sha256 }
+    # Releases ship no wheels: with a prepared receipt these still come from PyPI, checked against their pins.
+    foreach ($wheel in $PasswordCheckWheels) { Get-SetupDownload $wheel.Url (Join-Path $wheels $wheel.File) $wheel.Sha256 -Network }
     $folder = Join-Path $temp ($PasswordCheckPrefix + [guid]::NewGuid().ToString('N'))
     Set-SetupPrivateDirectory $folder
     try {

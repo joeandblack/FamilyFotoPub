@@ -12,6 +12,7 @@ from app.config import DATA, ROOT, configuration_root
 from app.backup.admission import hold_process_lease
 from app.telemetry import write_json
 from installer.common.local_payloads import payload, pip_arguments
+from installer.common.manifest import PYPI
 
 def digest(path):
     with path.open('rb') as f:return hashlib.file_digest(f,'sha256').hexdigest()
@@ -42,8 +43,8 @@ def install_dependencies(provider,env,target):
     else:
         # Releases do not ship these libraries: install them from PyPI, every file checked against its pin.
         try:
-            subprocess.run([str(python),'-m','pip','install','--disable-pip-version-check','--require-hashes',
-                            '--only-binary=:all:','-r',str(provider_lock(provider,target))],check=True)
+            subprocess.run([str(python),'-m','pip','install','--isolated','--index-url',PYPI,'--disable-pip-version-check',
+                            '--require-hashes','--only-binary=:all:','-r',str(provider_lock(provider,target))],check=True)
         except subprocess.CalledProcessError as error:
             raise RuntimeError("People's face-recognition libraries are downloaded from pypi.org during setup "
                                'and could not be. Connect to the internet and try again.') from error

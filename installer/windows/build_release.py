@@ -15,8 +15,8 @@ The recipe names local, already-downloaded inputs; nothing here downloads or pub
                 "postgres-installer": "postgresql-17.11-5-windows-x64.exe",
                 "postgres-binaries": "postgresql-17.11-5-windows-x64-binaries.zip"},
    "locks": {"core": "installer/locks/core-windows-x64.txt", "password": ..., "people-view": ...},
-   "wheels": "wheelhouse/",                 (every wheel the locks pin)
-   "licenses": {"python": ["PSF-2.0"], "postgres-installer": ["PostgreSQL"], "wheel:psycopg": [...], ...},
+   (no wheels are shipped: setup installs every lock from PyPI by hash)
+   "licenses": {"python": ["PSF-2.0"], "postgres-installer": ["PostgreSQL"], ...},
    "sources": "sources/",                   (published with the release; `audit` lists what it must hold)
    "mac": true}                             (optional, default true: the Mac setup is published under
                                              the same release_id, so new backups name it)
@@ -48,8 +48,8 @@ if str(ROOT) not in sys.path:
 
 from installer.common.bundle import build as build_bundle  # noqa: E402
 from installer.common.manifest import RELEASE_BASE, SETUP_ASSETS, Manifest, safe_relative, sha256  # noqa: E402
-from installer.macos.build_release import (COPYLEFT, MODELS, asset_name, file_sha256, index_lock_problems, lock_pins,  # noqa: E402
-                                           model_digest, normalized, uncompressed, wheel_license)
+from installer.macos.build_release import (COPYLEFT, MODELS, asset_name, file_sha256, lock_problems,  # noqa: E402
+                                           model_digest, normalized, uncompressed)
 from installer.windows.build_shared import audit_windows_release  # noqa: E402
 
 PLATFORM = 'windows-x64'
@@ -111,22 +111,9 @@ def assemble(recipe_path, output):
         source = path(recipe['payloads'][cid])
         # Keep the upstream file name: it is what each payload is, for anyone reading the release.
         add(cid, source, f'runtime/{source.name}', 'core', licenses.get(cid, []))
-    wheelhouse = {file_sha256(w): w for w in sorted(path(recipe['wheels']).glob('*.whl'))}
-    placed = set()
     for role in CORE_LOCKS:
-        feature = 'core'
-        lock = path(recipe['locks'][role])
-        add('lock-' + role, lock, f'locks/{role}.txt', feature, ['FamilyFoto'], lock_role=role)
-        for digest, pin in sorted(lock_pins(lock).items()):
-            if digest in placed:
-                continue
-            if digest not in wheelhouse:
-                raise ValueError(f'The wheelhouse lacks {pin} ({role} lock)')
-            wheel = wheelhouse[digest]
-            name = normalized(wheel.name.split('-')[0])
-            add('wheel-' + re.sub('[^a-z0-9]+', '-', wheel.name.lower())[:100].strip('-'), wheel,
-                'wheels/' + wheel.name, feature, licenses.get('wheel:' + name) or wheel_license(wheel))
-            placed.add(digest)
+        # Only the lock ships; setup installs its wheels from PyPI (installer/common/local_payloads.py).
+        add('lock-' + role, path(recipe['locks'][role]), f'locks/{role}.txt', 'core', ['FamilyFoto'], lock_role=role)
     if people:
         for provider in PEOPLE_LOCKS:
             source = path(recipe['models'][provider])
@@ -193,25 +180,22 @@ def audit(manifest, payload_root):
             problems.append(f'{cid}: must not be shipped; setup downloads it at install time')
     if 'mac_handover' not in doc:
         problems.append('mac_handover is missing: new Windows backups would not name the Mac setup')
-    pinned = {}
     for item in manifest.components.values():
         path = payload_root / str(safe_relative(item['bundle_path']))
+        if item['bundle_path'].endswith('.whl'):
+            problems.append(f"{item['id']}: releases ship no wheels; setup installs them from PyPI")
         if not path.is_file():
             continue  # already reported by the shared audit
         if zipfile.is_zipfile(path) and item['installed_size_estimate'] < uncompressed(path):
             problems.append(f"{item['id']}: installed_size_estimate is below the real uncompressed size")
-        if item.get('lock_role') and item.get('wheel_index'):
-            problems += index_lock_problems(item, path)
-        elif item.get('lock_role'):
-            pinned.update(lock_pins(path))
-    shipped = {c['sha256'] for c in manifest.components.values() if c['bundle_path'].endswith('.whl')}
-    problems += [f'locked wheel {pin} is not in the release' for digest, pin in sorted(pinned.items()) if digest not in shipped]
+        if item.get('lock_role'):
+            problems += lock_problems(item, path)
     if 'people' in doc['features']:
         for item in manifest.components.values():
             if item.get('model_provider') and item['sha256'] != model_digest(item['model_provider']):
                 problems.append(f"the {item['model_provider']} model is not the file setup expects (research-models.json)")
-            if item.get('lock_role') in PEOPLE_LOCKS and not item.get('wheel_index'):
-                problems.append(f"{item['id']}: People's provider wheels must install from PyPI, not ship")
+            if item.get('lock_role') in PEOPLE_LOCKS:
+                problems.append(f"{item['id']}: People must not ship the {item['lock_role']} lock; setup installs it from PyPI")
     problems += missing_sources(manifest, payload_root)
     if problems:
         raise ValueError('Windows release audit failed:\n- ' + '\n- '.join(problems))

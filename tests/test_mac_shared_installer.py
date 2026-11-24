@@ -112,7 +112,7 @@ def test_offline_shape_stages_application_and_unpacks_runnable_programs(tmp_path
     os.environ['FAMILYFOTO_PAYLOAD_RECEIPT'] = str(attempt / 'prepared.json')
     try:
         for role in ('core', 'password'):
-            assert {'--no-index', '--require-hashes', '--only-binary=:all:'} <= set(pip_arguments(role))
+            assert {'--index-url', 'https://pypi.org/simple', '--require-hashes', '--only-binary=:all:'} <= set(pip_arguments(role))
     finally:
         del os.environ['FAMILYFOTO_PAYLOAD_RECEIPT']
 
@@ -165,7 +165,7 @@ def test_installer_steps_use_local_inputs_only_with_a_receipt(tmp_path, monkeypa
     assert mac_prepare.core_dependency_command('py', root) == [
         'py', '-m', 'installer.common.install_dependencies', '--role', 'core']
     sources = setup_bootstrap.password_sources()
-    assert '--no-index' in sources and Path(sources[-1]).as_posix().endswith('locks/password.txt')
+    assert '--index-url' in sources and Path(sources[-1]).as_posix().endswith('locks/password.txt')
     monkeypatch.setattr(bundled, 'ROOT', root)
     monkeypatch.setattr(workflow.subprocess, 'run', lambda *a, **k: pytest.fail('Homebrew consulted'))
     assert workflow.tool_dirs() == (root / 'bundled/postgres/bin', root / 'bundled/ffmpeg/bin')

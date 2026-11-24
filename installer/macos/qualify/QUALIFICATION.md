@@ -19,8 +19,10 @@ the automatic checks; everything marked **(manual)** needs a person at the VM.
    `python-runtime --archive cpython-3.12.*-aarch64-apple-darwin-install_only.tar.gz --output python.zip`
    (check the archive against python-build-standalone's `SHA256SUMS` first) and
    `setup-window --output setup-window.zip`.
-5. Wheels: `pip download --only-binary=:all: -d wheelhouse -r installer/locks/<role>-macos-arm64.txt`
-   for core, password, people-view, insightface and facenet, on Apple Silicon with CPython 3.12.
+5. Wheels are not built or shipped: setup installs every lock from PyPI by hash. Before
+   publishing, check every lock still resolves there: `pip download --isolated --index-url
+   https://pypi.org/simple --require-hashes --only-binary=:all: --no-deps -d check -r
+   installer/locks/<role>-macos-arm64.txt` for core, password, people-view, insightface and facenet.
 6. Models: `buffalo_l.zip` and `20180402-114759-vggface2.pt`, checked against
    `face_detect/config/research-models.json`.
 7. `python installer/macos/build_release.py assemble --recipe recipe.json --output release/`
@@ -41,10 +43,6 @@ the automatic checks; everything marked **(manual)** needs a person at the VM.
     - for every Homebrew formula in both payloads' `payload-info.json`: its `source_url` archive
       (checked against `source_sha256`), and its recipe and patches exported at the recorded
       `tap_git_head` (`ruby_source_path`) as `sources/homebrew/<formula>.rb`;
-    - for every wheel under a GPL, LGPL, MPL or similar licence (psycopg is LGPL-3.0): its source
-      distribution, `sources/<name>-<version>.tar.gz` from PyPI. A binary-only wheel such as
-      `psycopg-binary` has no PyPI source distribution; put the source it is built from (psycopg's
-      release archive) under that name.
     Publish everything in `sources/` as release assets beside the DMG, not as links.
     `payload-info.json` also records the Homebrew version, each formula's revision and its bottle
     checksums. Build releases on a dedicated, clean build Mac (no extra taps or formulas) so they

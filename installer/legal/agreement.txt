@@ -22,7 +22,8 @@ backups.
 2. What is installed
 
 FamilyFoto Setup installs the FamilyFoto application and, inside its installation folder:
-- a private Python 3.12 runtime and the Python libraries FamilyFoto uses,
+- a private Python 3.12 runtime and the Python libraries FamilyFoto uses (setup downloads
+  the libraries during installation; section 5),
 - PostgreSQL 17, the database that holds the catalog,
 - FFmpeg, which converts and reads videos (on Windows, setup downloads it from www.gyan.dev
   during installation; the Windows release does not include it),
@@ -30,9 +31,10 @@ FamilyFoto Setup installs the FamilyFoto application and, inside its installatio
 - and, only if you include People, face-recognition libraries and face models (section 4;
   setup downloads those libraries during installation).
 
-Each component remains under its own licence. The release manifest lists every component with
-its licence, and the licence texts are installed with the components (on the Mac, for PostgreSQL
-and FFmpeg, under share/licenses in their folders).
+Each component remains under its own licence. The release manifest lists every component the
+release carries with its licence, the release's dependency locks list every Python library with
+its version and checksum, and the licence texts are installed with the components (on the Mac,
+for PostgreSQL and FFmpeg, under share/licenses in their folders).
 
 3. Third-party licences of note
 
@@ -42,11 +44,12 @@ and FFmpeg, under share/licenses in their folders).
   (with x264 and x265, which are under the GPL version 2 or later). On Windows, FamilyFoto does
   not distribute FFmpeg: setup downloads gyan.dev's build, which gyan.dev distributes under the
   GPL version 3 (https://www.gyan.dev/ffmpeg/builds/), and checks it against a pinned SHA-256.
-- psycopg (the database driver): GNU LGPL version 3. You may replace it with a compatible
-  version of your own.
-- Other Python libraries, such as FastAPI, Uvicorn, Pillow, pillow-heif, httpx, cryptography,
-  NumPy and SciPy: permissive licences (MIT, BSD, Apache-2.0 and similar), as listed in the
-  release manifest.
+- Python libraries: FamilyFoto does not distribute them; setup downloads them from the Python
+  Package Index (section 5). psycopg (the database driver) is under the GNU LGPL version 3, and
+  you may replace it with a compatible version of your own. Others, such as FastAPI, Uvicorn,
+  Pillow, pillow-heif, httpx, cryptography, NumPy and SciPy, are under permissive licences (MIT,
+  BSD, Apache-2.0 and similar); some of their packages include native libraries under their own
+  licences, for example pillow-heif's libheif, libde265 and x265.
 - Web interface: Lucide icons (ISC), daisyUI (MIT) and Cropper.js (MIT).
 
 Source code. The complete corresponding source code for the GPL and LGPL programs in this
@@ -59,10 +62,9 @@ build recipes used. The Windows release contains no FFmpeg; gyan.dev provides it
 People is installed only if you include it and accept its model terms in the setup window.
 Without People, FamilyFoto works fully, and people saved in a restored library stay viewable.
 
-FamilyFoto does not distribute People's Python libraries (among them OpenCV, ONNX Runtime and
-PyTorch, each under its own licence). If you include People, setup downloads them from the Python
-Package Index (https://pypi.org) during installation and checks every file against the checksum
-recorded for this release.
+People's Python libraries (among them OpenCV, ONNX Runtime and PyTorch, each under its own
+licence) are, like FamilyFoto's, downloaded from the Python Package Index during installation
+(section 5); FamilyFoto does not distribute them.
 
 The face models People uses are not covered by FamilyFoto's licence:
 - InsightFace "buffalo_l" models: provided by InsightFace for NON-COMMERCIAL RESEARCH USE ONLY.
@@ -78,16 +80,16 @@ unsure, do not include People, or ask the models' owners.
 
 5. Downloads and your data
 
-Setup downloads FamilyFoto and the components above from FamilyFoto's GitHub releases and checks
-every file against the checksum recorded for this release; an offline installer carries them
-instead. On Windows, setup downloads FFmpeg from www.gyan.dev, also during an offline
-installation, and checks it against a pinned checksum. If you include People, setup downloads its
-face-recognition libraries (such as OpenCV, ONNX Runtime and PyTorch) from the Python Package Index
-(pypi.org), also during an offline installation, and checks each file against a pinned checksum;
-the face models come with the release. After setup, FamilyFoto runs on your computer: your photos, videos and catalog stay
-there, and FamilyFoto does not send them, or reports about them, to the FamilyFoto developers or
-anyone else. Face recognition runs locally and never downloads anything. Anyone you give an
-account to, or who can reach FamilyFoto on your network, can see what that account allows.
+Setup downloads FamilyFoto, its Python runtime, PostgreSQL, the setup window, the face models
+and, on the Mac, FFmpeg from FamilyFoto's GitHub releases and checks every file against the
+checksum recorded for this release; an offline installer carries them instead. It downloads the
+Python libraries FamilyFoto uses, and People's if you include it, from the Python Package Index
+(https://pypi.org), and on Windows FFmpeg from www.gyan.dev, also during an offline
+installation; it checks each file against a pinned checksum. After setup, FamilyFoto runs on
+your computer: your photos, videos and catalog stay there, and FamilyFoto does not send them, or
+reports about them, to the FamilyFoto developers or anyone else. Face recognition runs locally
+and never downloads anything. Anyone you give an account to, or who can reach FamilyFoto on your
+network, can see what that account allows.
 
 6. Acceptance
 
