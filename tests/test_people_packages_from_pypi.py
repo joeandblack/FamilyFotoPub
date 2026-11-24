@@ -32,17 +32,17 @@ def test_provider_roles_fall_back_when_the_release_has_no_lock(tmp_path, monkeyp
     assert local_payloads.pip_arguments(role) == []
 
 
-def test_every_other_role_stays_prepared_payloads_only(tmp_path, monkeypatch):
+def test_every_other_role_needs_its_lock_in_the_release(tmp_path, monkeypatch):
     receipt(tmp_path, monkeypatch, ['core'])
-    assert '--no-index' in local_payloads.pip_arguments('core')
+    assert '--index-url' in local_payloads.pip_arguments('core')
     for role in ('password', 'people-view'):
         with pytest.raises(KeyError):
             local_payloads.pip_arguments(role)
 
 
-def test_an_old_release_that_shipped_provider_locks_still_uses_them(tmp_path, monkeypatch):
+def test_a_release_that_ships_a_provider_lock_installs_it_from_pypi(tmp_path, monkeypatch):
     receipt(tmp_path, monkeypatch, ['core', 'insightface'])
-    assert '--no-index' in local_payloads.pip_arguments('insightface')
+    assert '--index-url' in local_payloads.pip_arguments('insightface')
 
 
 @pytest.mark.parametrize('target,lock', [
@@ -107,4 +107,5 @@ def test_windows_audit_refuses_shipped_provider_locks(tmp_path):
 
 def test_terms_say_people_libraries_come_from_pypi():
     text = (ROOT / 'installer/legal/agreement.txt').read_text(encoding='utf-8')
-    assert 'pypi.org' in text and 'the face models come with the release' in text
+    flat = ' '.join(text.split())
+    assert 'pypi.org' in flat and "the face models and, on the Mac, FFmpeg from FamilyFoto's GitHub releases" in flat

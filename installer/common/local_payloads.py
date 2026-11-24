@@ -2,7 +2,7 @@
 import json
 import os
 from .acquire import file_digest, plain_path
-from .manifest import INDEX_LOCK_ROLES, PYPI
+from .manifest import PYPI
 
 
 def payload(digest):
@@ -36,16 +36,9 @@ def pip_arguments(role):
         raise ValueError('Dependencies require a materialized payload receipt')
     if role in ONLINE_ROLES and role not in doc.get('locks', {}):
         return []  # the caller installs this role from PyPI with its hash-pinned lock
-    wheels = plain_path(doc['wheelhouse'])
     lock = plain_path(doc['locks'][role]['path'])
     if file_digest(lock) != doc['locks'][role]['sha256']:
         raise ValueError('Prepared dependency lock was modified')
-    index = doc['locks'][role].get('index')
-    if index:
-        # Not in the release (People's provider wheels): from PyPI, every file pinned by the lock.
-        if role not in INDEX_LOCK_ROLES or index != PYPI:
-            raise ValueError('Only People provider locks may install from PyPI')
-        return ['--isolated', '--index-url', PYPI, '--require-hashes', '--only-binary=:all:',
-                '--disable-pip-version-check', '-r', str(lock)]
-    return ['--isolated', '--no-index', '--find-links', str(wheels), '--require-hashes',
-            '--only-binary=:all:', '--disable-pip-version-check', '-r', str(lock)]
+    # The release's verified lock, every file from PyPI and pinned by its hash (see manifest.PYPI).
+    return ['--isolated', '--index-url', PYPI, '--require-hashes', '--only-binary=:all:',
+            '--disable-pip-version-check', '-r', str(lock)]

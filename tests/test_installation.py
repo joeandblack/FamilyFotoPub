@@ -298,11 +298,12 @@ def test_prepared_payloads_never_fall_back_except_for_network_components(tmp_pat
     assert wrong.returncode != 0 and not (tmp_path / 'c.zip').exists()
 
 
-def test_ffmpeg_is_the_only_network_component():
+def test_only_unshipped_components_use_the_network():
     import re
     scripts = sorted((ROOT / 'installer/windows').glob('*.ps1'))
     users = [p.name for p in scripts if re.search(r'Get-SetupDownload\b[^\n]*-Network', p.read_text(encoding='utf-8'))]
-    assert users == ['install-ffmpeg.ps1']
+    # Neither is in the release: FFmpeg (gyan.dev) and the password check's wheels (PyPI; releases ship no wheels).
+    assert users == ['install-ffmpeg.ps1', 'setup-password.ps1']
 
 
 def test_private_directory_acl(tmp_path):

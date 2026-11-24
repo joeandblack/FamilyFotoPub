@@ -194,7 +194,7 @@ def test_assembled_release_passes_the_audit(tmp_path, monkeypatch):
     roles = {c.get('runtime_role') for c in doc['components']}
     assert set(EXECUTABLES) <= roles
     wheels = [c for c in doc['components'] if c['bundle_path'].endswith('.whl')]
-    assert len(wheels) == 4  # three role packages plus one shared wheel, placed once
+    assert wheels == []  # releases ship no wheels: setup installs every lock from PyPI
     assets = json.loads((release / 'assets.json').read_text())
     assert assets['runtime--python.zip'] == 'runtime/python.zip'
     assert all(c['url'].endswith('/' + c['bundle_path'].replace('/', '--')) for c in doc['components'])
@@ -236,25 +236,6 @@ def test_release_without_its_sources_fails_the_audit(tmp_path, monkeypatch):
     assert 'sources/homebrew/ lacks demo.rb' in str(refused.value)
 
 
-def test_copyleft_wheel_needs_its_source_distribution(tmp_path, monkeypatch):
-    manifest, release = assembled(tmp_path, monkeypatch, wheel_license='GNU Lesser General Public License v3 (LGPLv3)')
-    with pytest.raises(ValueError, match='lacks the source distribution of people_view_pkg 1.0'):
-        build_release.audit(manifest, release / 'payload')
-    sources = release / 'sources'
-    for sidecar in ('people_view_pkg-1.0.tar.gz.sha256', 'people_view_pkg-1.0.tar.gz.asc', 'people_view_pkg-1.0.tar.gz.part'):
-        (sources / sidecar).write_text('not the archive')
-        with pytest.raises(ValueError, match='lacks the source distribution'):
-            build_release.audit(manifest, release / 'payload')
-    (sources / 'people_view_pkg-1.0.tar.gz').write_bytes(b'not an archive')
-    with pytest.raises(ValueError, match='lacks the source distribution'):
-        build_release.audit(manifest, release / 'payload')
-    (sources / 'people_view_pkg-1.0.tar.gz').unlink()
-    with tarfile.open(sources / 'people-view-pkg-1.0.tar.gz', 'w:gz') as archive:  # any spelling of the name
-        data = b'[project]\nname = "people_view_pkg"\n'
-        info = tarfile.TarInfo('people_view_pkg-1.0/pyproject.toml')
-        info.size = len(data)
-        archive.addfile(info, io.BytesIO(data))
-    build_release.audit(manifest, release / 'payload')
 
 
 def test_terms_cover_what_a_release_bundles():
@@ -277,11 +258,6 @@ def test_people_provider_locks_are_not_shipped(tmp_path, monkeypatch):
         build_release.assemble(path, tmp_path / 'release')
 
 
-def test_missing_locked_wheel_is_refused_at_assembly(tmp_path, monkeypatch):
-    path = recipe(tmp_path, monkeypatch)
-    next((tmp_path / 'wheelhouse').glob('password*.whl')).unlink()
-    with pytest.raises(ValueError, match='wheelhouse lacks password-pkg'):
-        build_release.assemble(path, tmp_path / 'release')
 
 
 def rewrite(release, change):
@@ -298,7 +274,8 @@ def rewrite(release, change):
     ('minimum', 'minimum_os must be 27.0'),
     ('model', 'not the file setup expects'),
     ('license', 'no license inventory IDs'),
-    ('drop-wheel', 'is not in the release'),
+    ('ship-wheel', 'releases ship no wheels'),
+    ('unpinned-lock', 'every requirement needs a --hash'),
 ])
 def test_audit_refusals(tmp_path, monkeypatch, damage, message):
     manifest, release = assembled(tmp_path, monkeypatch)
@@ -313,9 +290,15 @@ def test_audit_refusals(tmp_path, monkeypatch, damage, message):
         monkeypatch.setattr(build_release, 'model_digest', lambda provider: '0' * 64)
     elif damage == 'license':
         manifest = rewrite(release, lambda d: next(c for c in d['components'] if c['id'] == 'runtime-ffmpeg').update(license_ids=[]))
+    elif damage == 'ship-wheel':
+        core = next(c for c in json.loads((release / 'manifest.json').read_text())['components'] if c['id'] == 'lock-core')
+        wheel = {k: v for k, v in core.items() if k != 'lock_role'}
+        manifest = rewrite(release, lambda d: d['components'].append(dict(wheel, id='wheel-demo', bundle_path='wheels/demo-1.0-py3-none-any.whl')))
     else:
-        manifest = rewrite(release, lambda d: (d['components'].remove(c := next(c for c in d['components'] if c['id'].startswith('wheel-shared'))),
-                                               [f.remove(c['id']) for f in d['features'].values() if c['id'] in f]))
+        lock = payload / 'locks/core.txt'
+        lock.write_text(lock.read_text() + 'unpinned-pkg==1.0\n')
+        manifest = rewrite(release, lambda d: next(c for c in d['components'] if c['id'] == 'lock-core').update(
+            byte_size=lock.stat().st_size, sha256=build_release.file_sha256(lock)))
     with pytest.raises(ValueError, match=message):
         build_release.audit(manifest, payload)
 
@@ -326,18 +309,6 @@ def test_native_payload_without_matching_source_is_refused(tmp_path, monkeypatch
         build_release.audit(manifest, release / 'payload')
 
 
-def test_wheel_license_falls_back_to_the_recipe(tmp_path, monkeypatch):
-    with pytest.raises(ValueError, match='no license inventory IDs'):
-        manifest, release = assembled(tmp_path, monkeypatch, wheel_license=None)
-        build_release.audit(manifest, release / 'payload')
-    path = tmp_path / 'again'
-    path.mkdir()
-    r = recipe(path, monkeypatch, wheel_license=None)
-    doc = json.loads(r.read_text())
-    doc['licenses']['wheel:people-view-pkg'] = ['MIT']
-    r.write_text(json.dumps(doc))
-    manifest = build_release.assemble(r, path / 'release')
-    build_release.audit(manifest, path / 'release/payload')
 
 
 def test_descriptor_notice_matches_the_mode(tmp_path, monkeypatch):
@@ -461,12 +432,11 @@ def test_audit_refuses_a_program_newer_than_minimum_os_and_unlicensed_formulas(t
     assert 'runtime-postgres: quiet has no license file and no SPDX license' in str(error.value)
 
 
-def test_legacy_index_lock_must_pin_every_file(tmp_path):
-    # Compatibility for older indexed receipts; new releases carry no provider locks.
-    lock = tmp_path / 'insightface.txt'
-    item = {'id': 'lock-insightface', 'wheel_index': 'https://pypi.org/simple'}
+def test_every_lock_must_pin_every_file(tmp_path):
+    # Every lock installs from PyPI, so an unhashed line would install an unverified file.
+    lock = tmp_path / 'core.txt'
     lock.write_text('pkg==1.0 --hash=sha256:' + '0' * 64 + '\n')
-    assert build_release.index_lock_problems(item, lock) == []
+    assert build_release.lock_problems({'id': 'lock-core'}, lock) == []
     lock.write_text(lock.read_text() + 'unpinned-pkg==1.0\n')
-    assert build_release.index_lock_problems(item, lock) == [
-        'lock-insightface: installed from PyPI, so every requirement needs a --hash (unpinned-pkg==1.0)']
+    assert build_release.lock_problems({'id': 'lock-core'}, lock) == [
+        'lock-core: installed from PyPI, so every requirement needs a --hash (unpinned-pkg==1.0)']

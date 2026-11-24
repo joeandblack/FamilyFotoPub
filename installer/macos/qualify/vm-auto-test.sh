@@ -3,7 +3,8 @@
 #   bash "/Volumes/My Shared Files/kit/vm-auto-test.sh" FamilyFotoSetup-<id>.dmg < test-admin-password.txt
 # Covers what needs no clicking: clean VM, quarantined download, Gatekeeper, launcher self-check,
 # the engine with the real bootstrap Python, unattended install with People, start/stop/start,
-# installed checks, and an offline install with the network blocked. Never run on a real Mac.
+# installed checks, and the offline engine with the network blocked (Python libraries always come
+# from PyPI, so an offline install stops before them; this release is online-only). Never run on a real Mac.
 set -uo pipefail
 KIT="/Volumes/My Shared Files/kit"; DMG="$KIT/$1"; APP="/Applications/FamilyFoto Setup.app"
 PASSWORD="$(head -1)"   # test administrator password, from stdin; never printed
@@ -47,7 +48,7 @@ health() { for _ in $(seq 1 40); do curl -sk --max-time 2 https://127.0.0.1:4341
 start=$(date +%s); timeout 120 .venv/bin/python3 installer/macos/manage.py stop 2>&1 | tail -1; echo "stop took $(( $(date +%s) - start ))s"
 .venv/bin/python3 installer/macos/manage.py start 2>&1 | head -1; health && echo "health OK after restart"
 step "installed checks"; bash "$KIT/qualify.sh" installed ~/FamilyFoto | tail -8
-step "offline: block the internet, install again into a second folder"
+step "offline: block the internet, prepare again from the bundle into a second folder"
 # Loopback stays open: FamilyFoto talks to its own database and web server on 127.0.0.1, and a
 # blocked close there leaves PostgreSQL holding a dead connection that later blocks stop and backup.
 printf 'set skip on lo0\nblock drop out quick inet proto {tcp udp} from any to ! 192.168.64.0/24\nblock drop out quick inet6 all\n' > /tmp/ff-offline.pf
@@ -57,8 +58,5 @@ O=$(mktemp -d "$HOME/ff-offline.XXXX"); mkdir -p "$O/attempt"; printf '{"root": 
 (cd "$W/engine" && "$W/python/bin/python3.12" -E -s -B -m installer.macos.online_setup --descriptor "$APP/Contents/Resources/bootstrap.json" \
    --attempt "$O/attempt" --choices "$O/attempt/choices.json" --bundle "$APP/Contents/Resources/bundle" \
    --os-version "$(sw_vers -productVersion)" --prepare-only > "$O/engine.log" 2>&1) && echo "offline engine OK" || tail -3 "$O/engine.log"
-V="$O/v"; ~/FamilyFoto-offline/bundled/python/bin/python3.12 -m venv "$V"
-(cd ~/FamilyFoto-offline && FAMILYFOTO_PAYLOAD_RECEIPT="$O/attempt/prepared.json" "$V/bin/python" -m installer.common.install_dependencies --role core >/dev/null 2>&1) \
-  && "$V/bin/python" -c 'import fastapi, psycopg, PIL, pillow_heif; print("offline core install OK")'
 sudo -n pfctl -q -d 2>/dev/null; sudo -n pfctl -q -F all 2>/dev/null
 echo "network restored: HTTP $(curl -s -o /dev/null -w '%{http_code}' --max-time 8 https://github.com)"

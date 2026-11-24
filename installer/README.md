@@ -41,22 +41,27 @@ new library and for a restore from a backup alike.
    official URLs; a mismatch stops setup and nothing is used.
 4. **Components FamilyFoto cannot redistribute** are downloaded from their official source during
    setup, also during an offline installation, and checked against a pinned SHA-256. Today these
-   are FFmpeg on Windows (gyan.dev) and People's Python libraries on both platforms (PyPI).
+   are FFmpeg on Windows (gyan.dev) and every Python library on both platforms (PyPI): several
+   wheels bundle GPL or LGPL native libraries their metadata does not name (opencv-python's
+   FFmpeg, pillow-heif's x265, numpy and scipy's libquadmath), so releases ship locks, not wheels.
 5. **Optional features** such as People are downloaded only if chosen, and only after their terms
    are accepted.
 
 The shared engine follows 1 to 3 for every component in the release manifest
 (`installer/common/acquire.py`: the temp folder first, then an offline bundle, then a download;
 offline mode refuses to download). Rule 4's components are fetched by the step that installs
-them (`installer/windows/install-ffmpeg.ps1`, `face_detect/cli/setup.py`).
+them (`installer/windows/install-ffmpeg.ps1`; Python libraries through
+`installer/common/local_payloads.py` `pip_arguments`, which installs each lock from PyPI by hash).
 
 **Current release: online installation only.** v0.1.0-beta releases publish the online
 installers (FamilyFotoSetup.dmg, FamilyFotoSetup.exe) and their payloads. The offline DMG and
 bundle are built only as internal test vehicles: they run the same installation with the temp
 folder already filled. Known gaps, not investigated yet:
 - the setup cache is not removed after a successful setup yet (about 0.9 to 1.3 GB stays behind);
+- setup runs pip with `--isolated`, so a proxy set only in pip's own configuration is not used
+  (an `HTTPS_PROXY` environment variable still is);
 - for a later offline release: rule 4 makes an offline installation need the internet for those
-  components; People's libraries go straight to PyPI (pip's own cache aside) instead of checking
+  components; Python libraries go straight to PyPI (pip's own cache aside) instead of checking
   the temp folder first; and the Windows offline test vehicle is a folder (the bundle and its
   FamilyFotoSetup.exe), not yet the one file rule 2 describes.
 

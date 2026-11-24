@@ -13,11 +13,10 @@ The recipe names local, already-built inputs; nothing here downloads or publishe
    "runtimes": {"python": "python.zip", "postgres": "postgres.zip",
                 "ffmpeg": "ffmpeg.zip", "setup-window": "setup-window.zip"},
    "locks": {"core": "installer/locks/core-macos-arm64.txt", "password": ..., "people-view": ...},
-            (People's provider libraries are not shipped: setup installs them from PyPI by hash,
-             from installer/locks/insightface-macos-arm64.txt and facenet-macos-arm64.txt)
-   "wheels": "wheelhouse/",                                   (every wheel the locks pin)
+            (no wheels are shipped: setup installs every lock from PyPI by hash, and People's
+             provider locks come from installer/locks/insightface- and facenet-macos-arm64.txt)
    "models": {"insightface": "buffalo_l.zip", "facenet": "20180402-114759-vggface2.pt"},
-   "licenses": {"application": ["FamilyFoto"], "python": ["PSF-2.0"], "wheel:insightface": ["MIT"], ...},
+   "licenses": {"application": ["FamilyFoto"], "python": ["PSF-2.0"], ...},
    "sources": "sources/",    (published with the release; `audit` lists what it must hold)
    "windows": true}          (optional, default true: the Windows setup is published under the
                               same release_id, so new backups name it; false for a Mac-only release)
@@ -65,7 +64,8 @@ def missing_sources(manifest, payload_root):
 
     Every Homebrew formula in the native payloads needs its source archive (checked against its
     SHA-256) and its recipe as sources/homebrew/<formula>.rb; every wheel under a copyleft licence
-    needs its source distribution, sources/<name>-<version>.tar.gz or .zip."""
+    needs its source distribution, sources/<name>-<version>.tar.gz or .zip (releases ship no wheels
+    now, so this applies only to an older manifest)."""
     sources = Path(payload_root).parent / 'sources'
     present = {normalized(p.name): p for p in sources.rglob('*') if p.is_file()} if sources.is_dir() else {}
     problems = []
@@ -138,10 +138,8 @@ def lock_pins(path):
     return pins
 
 
-def index_lock_problems(item, path):
-    """A lock installed from PyPI must pin every requirement by hash, since nothing of it ships."""
-    if not item.get('wheel_index'):
-        return []
+def lock_problems(item, path):
+    """Every lock installs from PyPI, so every requirement must be pinned by hash."""
     unpinned = [line.split()[0] for line in Path(path).read_text(encoding='utf-8').splitlines()
                 if line.strip() and not line.startswith('#') and '--hash=sha256:' not in line]
     return [f"{item['id']}: installed from PyPI, so every requirement needs a --hash ({', '.join(unpinned)})"] if unpinned else []
@@ -195,25 +193,13 @@ def assemble(recipe_path, output):
     for role in EXECUTABLES:
         add('runtime-' + role, path(recipe['runtimes'][role]), f'runtime/{role}.zip', 'core',
             licenses.get(role, []), runtime_role=role)
-    wheelhouse = {file_sha256(w): w for w in sorted(path(recipe['wheels']).glob('*.whl'))}
-    placed = set()
     if any(role in recipe.get('locks', {}) for role in PEOPLE_LOCKS):
         raise ValueError('People provider locks are not shipped; setup installs them from PyPI')
     for role in CORE_LOCKS:
         feature = 'core'
         lock = path(recipe['locks'][role])
+        # Only the lock ships; setup installs its wheels from PyPI (installer/common/local_payloads.py).
         add('lock-' + role, lock, f'locks/{role}.txt', feature, ['FamilyFoto'], lock_role=role)
-        for digest, pin in sorted(lock_pins(lock).items()):
-            if digest in placed:
-                continue
-            if digest not in wheelhouse:
-                raise ValueError(f'The wheelhouse lacks {pin} ({role} lock)')
-            wheel = wheelhouse[digest]
-            # The recipe states a license where a wheel's metadata is silent (e.g. "wheel:insightface").
-            name = re.sub('[-_.]+', '-', wheel.name.split('-')[0]).lower()
-            add('wheel-' + re.sub('[^a-z0-9]+', '-', wheel.name.lower())[:100].strip('-'), wheel,
-                'wheels/' + wheel.name, feature, licenses.get('wheel:' + name) or wheel_license(wheel))
-            placed.add(digest)
     for provider in PEOPLE_LOCKS:
         source = path(recipe['models'][provider])
         add('model-' + provider, source, f'models/{provider}/{source.name}', 'people',
@@ -271,9 +257,10 @@ def audit(manifest, payload_root):
                 problems.append(f'People needs exactly one {provider} model ({MODELS[provider]["model"]})')
             elif models[0]['sha256'] != model_digest(provider):
                 problems.append(f'the {provider} model is not the file setup expects (research-models.json)')
-    pinned = {}
     for item in manifest.components.values():
         path = payload_root / str(safe_relative(item['bundle_path']))
+        if item['bundle_path'].endswith('.whl'):
+            problems.append(f"{item['id']}: releases ship no wheels; setup installs them from PyPI")
         if not path.is_file() or path.stat().st_size != item['byte_size'] or file_sha256(path) != item['sha256']:
             problems.append(f"{item['id']}: payload differs from the manifest")
             continue
@@ -281,10 +268,8 @@ def audit(manifest, payload_root):
             problems.append(f"{item['id']}: no license inventory IDs")
         if zipfile.is_zipfile(path) and item['installed_size_estimate'] < uncompressed(path):
             problems.append(f"{item['id']}: installed_size_estimate is below the real uncompressed size")
-        if item.get('lock_role') and item.get('wheel_index'):
-            problems += index_lock_problems(item, path)
-        elif item.get('lock_role'):
-            pinned.update(lock_pins(path))
+        if item.get('lock_role'):
+            problems += lock_problems(item, path)
         if item.get('runtime_role') in ('postgres', 'ffmpeg'):
             info = json.loads(zipfile.ZipFile(path).read('payload-info.json'))
             for formula, entry in sorted(info.get('formulas', {}).items()):
@@ -298,8 +283,6 @@ def audit(manifest, payload_root):
             needed = runtime_minimum(path)
             if needed and os_version_tuple(needed[0]) > os_version_tuple(minimum):
                 problems.append(f"{item['id']}: {needed[1]} needs macOS {needed[0]}, newer than minimum_os {minimum}")
-    shipped = {c['sha256'] for c in manifest.components.values() if c['bundle_path'].endswith('.whl')}
-    problems += [f'locked wheel {pin} is not in the release' for digest, pin in sorted(pinned.items()) if digest not in shipped]
     agreement = payload_root / str(safe_relative(doc['agreement_path']))
     if not agreement.is_file() or file_sha256(agreement) != doc['agreement_sha256']:
         problems.append('the agreement differs from the manifest')

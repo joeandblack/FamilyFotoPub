@@ -8,10 +8,11 @@ from pathlib import PurePosixPath
 from urllib.parse import quote, urlsplit
 
 LOCK_ROLES = ('core', 'password', 'people-view', 'insightface', 'facenet')
-# People's provider wheels are not shipped: setup installs them from PyPI, each pinned by the
-# lock's --hash, so the release does not redistribute them (opencv-python bundles a GPL FFmpeg).
+# Releases ship no Python wheels: setup installs every lock from PyPI, each file pinned by the
+# lock's --hash. Several wheels bundle GPL/LGPL native libraries their metadata does not name
+# (opencv-python's FFmpeg, pillow_heif's x265 and libheif, numpy and scipy's libquadmath), whose
+# corresponding source FamilyFoto cannot publish, so FamilyFoto does not redistribute any wheel.
 PYPI = 'https://pypi.org/simple'
-INDEX_LOCK_ROLES = ('insightface', 'facenet')
 # Bundled native programs a platform adapter unpacks (link-free ZIPs; see README).
 RUNTIME_ROLES = ('python', 'postgres', 'ffmpeg', 'setup-window')
 RELEASE_BASE = 'https://github.com/joeandblack/FamilyFotoPub/releases/download'
@@ -128,8 +129,6 @@ class Manifest:
                 if role not in LOCK_ROLES or role in roles or not path.endswith('.txt'):
                     raise ValueError('Invalid or duplicate dependency lock role')
                 roles.add(role)
-            if 'wheel_index' in item and (item.get('lock_role') not in INDEX_LOCK_ROLES or item['wheel_index'] != PYPI):
-                raise ValueError('Only People provider locks may install from an index, and only from PyPI')
             digest_string(item['sha256'])
             for field in ('byte_size', 'installed_size_estimate'):
                 if type(item[field]) is not int or item[field] < 0:
