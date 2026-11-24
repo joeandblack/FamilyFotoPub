@@ -252,7 +252,18 @@ no network fallback), whose locked wheels are missing, which lacks the Mac hando
 copyleft sources are missing. It also refuses a release that ships FFmpeg: the Windows release
 does not include it, and `install-ffmpeg.ps1` downloads gyan.dev's pinned build during setup, even
 from prepared or offline payloads (`Get-SetupDownload -Network`; FFmpeg is the only such
-component). An offline installation therefore needs internet for that one step. The password and
+component). An offline installation therefore needs internet for that one step.
+
+**This makes every Windows installation and restore depend on gyan.dev.** Each release pins one
+exact file (`ffmpeg-9.0.2-essentials_build.zip` for 0.1.0). Installing or restoring that release
+later downloads that file again at that time. If gyan.dev removes or replaces it, setup stops at
+the FFmpeg step with the download or checksum error, and that release can no longer install; there
+is no fallback. The way out is a later FamilyFoto release, which pins a build gyan.dev still
+serves. Whether that release can restore a backup made by the older one is its own restore
+question, so check it before relying on this. Accepted for the betas; an FFmpeg built for FamilyFoto with complete published sources would end
+the dependency.
+
+The password and
 People-view locks are `installer/locks/password-windows-x64.txt` and
 `installer/locks/people-view-windows-x64.txt`; the People provider closures are not locked for
 Windows yet, so a Windows release offers Core.

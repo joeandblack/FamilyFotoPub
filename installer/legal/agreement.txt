@@ -30,8 +30,8 @@ FamilyFoto Setup installs the FamilyFoto application and, inside its installatio
 - and, only if you include People, face-recognition libraries and face models (section 4).
 
 Each component remains under its own licence. The release manifest lists every component with
-its licence, and the licence texts are installed with the components (for PostgreSQL and FFmpeg,
-under share/licenses in their folders).
+its licence, and the licence texts are installed with the components (on the Mac, for PostgreSQL
+and FFmpeg, under share/licenses in their folders).
 
 3. Third-party licences of note
 
@@ -73,8 +73,9 @@ unsure, do not include People, or ask the models' owners.
 5. Downloads and your data
 
 Setup downloads FamilyFoto and the components above from FamilyFoto's GitHub releases and checks
-every file against the checksum recorded for this release; an offline disk image carries them
-instead. After setup, FamilyFoto runs on your computer: your photos, videos and catalog stay
+every file against the checksum recorded for this release; an offline installer carries them
+instead. On Windows, setup downloads FFmpeg from www.gyan.dev, also during an offline
+installation, and checks it against a pinned checksum. After setup, FamilyFoto runs on your computer: your photos, videos and catalog stay
 there, and FamilyFoto does not send them, or reports about them, to the FamilyFoto developers or
 anyone else. Face recognition runs locally and never downloads anything. Anyone you give an
 account to, or who can reach FamilyFoto on your network, can see what that account allows.
