@@ -37,6 +37,8 @@ def materialize(manifest, receipt_path, platform, os_version=None):
             if role in lock_map:
                 raise ValueError('Duplicate dependency lock role')
             lock_map[role] = {'path': str(target), 'sha256': item['sha256']}
+            if item.get('wheel_index'):
+                lock_map[role]['index'] = item['wheel_index']
         else:
             continue
         if target.exists():

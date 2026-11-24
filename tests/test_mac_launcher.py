@@ -363,4 +363,6 @@ def test_people_terms_say_the_release_carries_the_model(monkeypatch):
     assert workflow.people_terms() == workflow.PEOPLE_TERMS and 'downloaded during installation' in workflow.people_terms()
     monkeypatch.setenv('FAMILYFOTO_PAYLOAD_RECEIPT', '/tmp/prepared.json')
     text = workflow.people_terms()
-    assert 'included with this installer' in text and 'downloaded' not in text and 'non-commercial research' in text
+    # The release carries the model; People's libraries still come from PyPI (not redistributed).
+    assert 'model is included with this installer' in text and 'non-commercial research' in text
+    assert 'libraries are downloaded from the Python Package Index' in text
