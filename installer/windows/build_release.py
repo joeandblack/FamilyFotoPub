@@ -31,7 +31,10 @@ Each native payload must be byte-for-byte the file Windows setup pins (setup-com
 install-python.ps1): setup finds prepared payloads by that SHA-256 and never falls back to the
 network. FFmpeg is the exception: the release does not ship it, and setup downloads gyan.dev's
 pinned build at install time (install-ffmpeg.ps1), so the release carries no FFmpeg source
-obligation. Assets are published flat: `bundle_path` with `/` replaced by `--`.
+obligation. Assets are published flat: `bundle_path` with `/` replaced by `--`. Both platforms
+publish into one GitHub release, so every Windows asset is under `windows/` (published as
+`windows--…`) and the engine is `engine-windows.zip`; only the face models, byte-identical on both
+platforms, keep the shared `models/…` names.
 """
 import argparse
 import json
@@ -61,6 +64,12 @@ PEOPLE_LOCKS = ('insightface', 'facenet')
 AGREEMENT = ROOT / 'installer/legal/agreement.txt'
 # A binary-only wheel whose source is published as another PyPI package of the same version.
 SOURCE_PACKAGES = {'psycopg-binary': 'psycopg-c'}
+# The Windows and Mac setups publish into one GitHub release, whose asset names come from
+# bundle_path. Windows assets live under windows/ so they never take a Mac asset's name; only the
+# face models (the same bytes on both platforms) share names.
+ASSET_PREFIX = 'windows/'
+SHARED_PATHS = ('models/',)
+ENGINE_ASSET = 'engine-windows.zip'
 
 
 def setup_pins(root=ROOT):
@@ -96,6 +105,8 @@ def assemble(recipe_path, output):
     release_url = RELEASE_BASE + '/' + quote(recipe['release_id'], safe='')
 
     def add(cid, source, bundle_path, feature, license_ids, **extra):
+        if not bundle_path.startswith(SHARED_PATHS):
+            bundle_path = ASSET_PREFIX + bundle_path  # the Mac's assets share this release
         target = payload / str(safe_relative(bundle_path))
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, target)
@@ -178,6 +189,9 @@ def audit(manifest, payload_root):
     for cid in NOT_SHIPPED:
         if cid in manifest.components:
             problems.append(f'{cid}: must not be shipped; setup downloads it at install time')
+    for item in manifest.components.values():
+        if not item['bundle_path'].startswith((ASSET_PREFIX, *SHARED_PATHS)):
+            problems.append(f"{item['id']}: asset path must start with {ASSET_PREFIX} (it shares a release with the Mac)")
     if 'mac_handover' not in doc:
         problems.append('mac_handover is missing: new Windows backups would not name the Mac setup')
     for item in manifest.components.values():
@@ -209,7 +223,7 @@ def descriptor(manifest, engine_zip, notices, mode):
                 minimum_os=manifest.document['minimum_os'], manifest_sha256=manifest.digest,
                 bootstrap_notices=notices,
                 python=dict(url=python['url'], sha256=python['sha256'], bundle_path=python['bundle_path']),
-                engine=dict(url=base + '/engine.zip', sha256=file_sha256(engine_zip),
+                engine=dict(url=base + '/' + ENGINE_ASSET, sha256=file_sha256(engine_zip),
                             bundle_path='bootstrap/engine.zip'))
 
 
