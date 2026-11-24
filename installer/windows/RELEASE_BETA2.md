@@ -3,6 +3,11 @@
 Status: preparation, not release qualification. No tag, assets, services or server
 deployment are created by this document. Companion to release-plan PR #20.
 
+**Superseded by `v0.1.0-beta.3`** (see `installer/releases/v0.1.0-beta.2.md`). Read beta.2 as
+beta.3 and `0.1.0b2` as `0.1.0b3`. Since #26 the Windows release does not include FFmpeg: setup
+downloads gyan.dev's pinned build, also during an offline installation, so FFmpeg is neither a
+payload nor a source-inventory item here.
+
 ## Identity and handover
 
 - Use release ID and tag `v0.1.0-beta.2`, and project version `0.1.0b2`.
