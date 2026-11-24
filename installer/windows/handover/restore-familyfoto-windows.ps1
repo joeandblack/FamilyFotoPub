@@ -10,7 +10,7 @@ $ErrorActionPreference = 'Stop'
 $commit = ''
 
 function Assert-RestoreCommit([string]$Commit) {
-    if ($Commit -cnotmatch '^[0-9a-f]{40}$') {
+    if ($Commit -cnotmatch '\A[0-9a-f]{40}\z') {
         throw 'This launcher has no verified code version. Obtain the matching FamilyFoto release; no files were downloaded.'
     }
 }

@@ -128,6 +128,7 @@ def write_release(folder, receipt_path=None):
 
 
 def write_handover(backup, receipt_path=None):
+    commit = None  # Resolve lazily, once, only if a platform needs a source launcher.
     folder = Path(backup) / FOLDER
     folder.mkdir(exist_ok=True)
     directory_identity(folder)
@@ -145,4 +146,6 @@ def write_handover(backup, receipt_path=None):
         _publish(folder, LAUNCHER, launcher(commit), 0o700)
     sync_directory(folder)
     if not write_windows_handover(backup, receipt_path):
-        write_source_handover(backup, source_commit())
+        if commit is None:
+            commit = source_commit()
+        write_source_handover(backup, commit)

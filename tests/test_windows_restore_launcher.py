@@ -51,7 +51,7 @@ def test_refuses_file_as_directory(tmp_path):
     assert target.read_text() == 'keep'
 
 
-@pytest.mark.parametrize('commit', ['', 'main', 'a' * 39, 'A' * 40, "';exit;"])
+@pytest.mark.parametrize('commit', ['', 'main', 'a' * 39, 'A' * 40, "';exit;", 'a' * 40 + '\n', 'a' * 40 + '\r\n'])
 def test_reject_unpinned_commit(commit):
     result = subprocess.run(['powershell.exe', '-NoProfile', '-Command',
         f". {quote(SCRIPT)}; Assert-RestoreCommit {quote(commit)}"], capture_output=True, text=True)

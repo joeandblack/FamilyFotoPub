@@ -105,3 +105,27 @@ def test_source_launcher_refuses_linked_output(tmp_path):
     with pytest.raises(ValueError):
         windows_handover.write_source_handover(tmp_path, 'a' * 40)
     assert other.read_text() == 'keep'
+
+
+@pytest.mark.parametrize('mac_release,windows_release', [(False, False), (True, False), (False, True), (True, True)])
+@pytest.mark.parametrize('commit', ['a' * 40, ''])
+def test_source_identity_resolved_only_once_when_needed(tmp_path, monkeypatch, mac_release, windows_release, commit):
+    from app.backup import handover
+    calls = []
+    def identify():
+        calls.append(True)
+        return commit
+    monkeypatch.setattr(handover, 'source_commit', identify)
+    doc = {}
+    if mac_release:
+        doc['mac_handover'] = {'release_id': 'test-1', 'setup_url': URL.replace('.exe', '.dmg')}
+    if windows_release:
+        doc['windows_handover'] = {'release_id': 'test-1', 'setup_url': URL}
+    metadata = tmp_path / 'receipt.json'
+    metadata.write_text(json.dumps(doc))
+    handover.write_handover(tmp_path, metadata)
+    assert len(calls) == (0 if mac_release and windows_release else 1)
+    if not mac_release:
+        assert f"commit='{commit}'" in (tmp_path / handover.FOLDER / handover.LAUNCHER).read_text()
+    if not windows_release:
+        assert f"$commit = '{commit}'" in (tmp_path / windows_handover.FOLDER / windows_handover.LAUNCHER).read_text()

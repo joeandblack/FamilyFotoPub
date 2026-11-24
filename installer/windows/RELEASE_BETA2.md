@@ -80,9 +80,13 @@ No hosted CI is required for this preparation PR; local results are recorded.
 ## Preparation validation (2026-11-23)
 
 - Windows launcher, Windows handover and Mac shared-installer regressions:
-  **59 passed, 5 skipped**. Includes a real local Git fetch of an older commit
+  **69 passed, 5 skipped** after Mac review fixes. Includes a real local Git fetch of an older commit
   while the repository's branch points to a newer commit; no network used.
-- Backup capture retry and shared-installer regressions: **152 passed, 2 skipped**.
+- Backup capture retry and shared-installer regressions on the initial PR head:
+  **152 passed, 2 skipped**.
+- Review regressions cover one lazy source-identity lookup across both handovers
+  (including disabled launchers), zero lookups with both release links, and
+  rejection of LF/CRLF suffixes in the PowerShell commit validator.
 - Windows PowerShell and hard-link fixtures were run outside the restricted
   agent shell after its authorization restrictions blocked the initial run.
 - `git diff --check` passed. No hosted CI, release build, VM installation,
