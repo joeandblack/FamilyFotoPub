@@ -61,8 +61,8 @@ def test_setup_installs_providers_from_pypi_by_hash(tmp_path, monkeypatch, targe
     assert '--require-hashes' in install and '--only-binary=:all:' in install and '--no-index' not in install
     assert Path(install[-1]) == ROOT / lock
     # Every requirement in the lock it installs from is hash-pinned.
-    lines = [l for l in (ROOT / lock).read_text(encoding='utf-8').splitlines() if l.strip() and not l.startswith('#')]
-    assert lines and all('--hash=sha256:' in l for l in lines)
+    lines = [line for line in (ROOT / lock).read_text(encoding='utf-8').splitlines() if line.strip() and not line.startswith('#')]
+    assert lines and all('--hash=sha256:' in line for line in lines)
 
 
 def test_unreachable_pypi_says_to_connect(tmp_path, monkeypatch):
