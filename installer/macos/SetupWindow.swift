@@ -172,6 +172,8 @@ final class Setup: ObservableObject {
                 if let i = arguments.firstIndex(of: "--web-port"), i + 1 < arguments.count { a.web = arguments[i+1] }
                 if a.restore {
                     if let i = arguments.firstIndex(of: "--backup"), i + 1 < arguments.count { a.backup = arguments[i+1] }
+                    // The owner confirmed the old library was stopped when this restore started; the box is hidden now.
+                    a.stopped = arguments.contains("--old-library-stopped")
                     retry()
                 } else if FileManager.default.fileExists(atPath: root.appendingPathComponent("runtime/macos-database-ready.json").path) {
                     start()

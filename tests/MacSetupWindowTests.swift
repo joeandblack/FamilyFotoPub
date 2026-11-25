@@ -200,6 +200,20 @@ struct WindowTests {
         assert(setup.a.backupPassword.isEmpty && !setup.passwordValid)
         setup.retry()
         assert(setup.page == .questions && !setup.ready)
+        // Reopened after a quit or reboot: the recorded confirmation stands, so the password alone enables Start.
+        let resumeRoot = FileManager.default.temporaryDirectory.appendingPathComponent("setup-resume-\(UUID().uuidString)")
+        try! FileManager.default.createDirectory(at: resumeRoot, withIntermediateDirectories: true)
+        let recorded = ["restore", "--web-port", "4341", "--backup", "/tmp/backup", "--backup-password-frame-stdin",
+                        "--media", "copy", "--media-folder", "/tmp/FFLibrary", "--old-library-stopped"]
+        try! JSONEncoder().encode(recorded).write(to: resumeRoot.appendingPathComponent(".macos-setup.json"))
+        let reopened = Setup(root: resumeRoot, restore: false, resumeCheck: { _ in ["needsPassword": "true"] })
+        reopened.load()
+        assert(reopened.resumed && reopened.page == .questions && reopened.a.restore && reopened.a.stopped)
+        assert(!reopened.ready)
+        reopened.a.backupPassword = "fixture administrator password"
+        reopened.passwordValid = true
+        assert(reopened.ready && reopened.validationIssues.isEmpty)
+        try? FileManager.default.removeItem(at: resumeRoot)
         setup.finish(3, "Wrong password")
         assert(setup.code == 3 && setup.message.contains("enter its administrator password"))
         setup.finish(4, "")
