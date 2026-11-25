@@ -15,9 +15,29 @@ from ..telemetry import logger, utcnow, write_json
 class DiskError(OSError):
     pass
 
+# Prefixes of the stand-ins used when Windows reports no hardware serial. A hardware serial never has them.
+FALLBACK_SERIALS = ('partition:', 'mbr:')
+
+# Some disks report an empty SerialNumber: Hyper-V virtual disks and some USB enclosures. Their partition
+# is named instead, like the Mac's partition UUID: the GPT partition GUID, or for MBR the disk signature
+# and the partition's offset. A disk that reports a serial keeps exactly that value.
+DISK_SERIAL = r'''
+      $serial=([string]$disk.SerialNumber).Trim()
+      if (-not $serial) {
+        $partition=([string]$p.Guid).Trim().Trim('{}').ToLower()
+        if ($partition) { $serial='partition:'+$partition }
+        elseif ($disk.Signature) { $serial='mbr:'+('{0:x8}' -f [uint32]$disk.Signature)+':'+[string]$p.Offset }
+      }
+'''
+
 def match_disk(expected, observed):
     for key in ('serial','volume_serial','volume_id'):
-        if str(expected[key]).strip().lower() != str(observed.get(key,'')).strip().lower():
+        recorded = str(expected[key]).strip().lower()
+        seen = str(observed.get(key,'')).strip().lower()
+        if key == 'serial' and not recorded and seen.startswith(FALLBACK_SERIALS):
+            # Recorded before the fallback existed, when this disk's serial read as empty.
+            continue
+        if recorded != seen:
             raise DiskError(f'{expected["drive"]}: disk identity mismatch ({key}). No writes permitted.')
 
 def snapshot(drives,since=None):
@@ -31,11 +51,12 @@ def snapshot(drives,since=None):
       $p=Get-Partition -DriveLetter $letter; $disk=$p | Get-Disk
       $logical=Get-CimInstance Win32_LogicalDisk -Filter ("DeviceID='"+$letter+":'")
       $guid=($p.AccessPaths | Where-Object {$_ -like '*Volume{*'}) -replace '^.*\{','' -replace '\}.*$',''
-      [PSCustomObject]@{drive=$letter;serial=([string]$disk.SerialNumber).Trim();volume_serial=$logical.VolumeSerialNumber;volume_id=[string]$guid;online=(($disk.OperationalStatus -join ',') -eq 'Online');disk_number=$disk.Number}
+      DISKSERIAL
+      [PSCustomObject]@{drive=$letter;serial=$serial;volume_serial=$logical.VolumeSerialNumber;volume_id=[string]$guid;online=(($disk.OperationalStatus -join ',') -eq 'Online');disk_number=$disk.Number}
     })
     EVENTCHECK
     ConvertTo-Json -InputObject $result -Compress
-    '''.replace('LETTERS',letters)
+    '''.replace('LETTERS',letters).replace('DISKSERIAL',DISK_SERIAL)
     events=''
     if since is not None:
         since=datetime.fromisoformat(since).isoformat()
