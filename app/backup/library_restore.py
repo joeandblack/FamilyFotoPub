@@ -185,7 +185,7 @@ def restore_library(directory, key, target_directory, admin, pg_restore, *, expe
         return _restore_contents(directory, key, target_directory, admin, pg_restore, payload, retirement, restoration_id,
             expected_cluster_directory=expected_cluster_directory, database_budget=database_budget,
             guard_factory=guard_factory, progress=progress, validation_follows=validation_follows, in_place=in_place,
-            home=home, read=read)
+            home=home, read=read, allow_unprotected_media=allow_unprotected_media)
 
 
 def recovered_media_copy(target_directory):
@@ -249,7 +249,7 @@ def move_media_in_place(directory, target_directory, payload, restoration_id, pr
 
 def _restore_contents(directory, key, target_directory, admin, pg_restore, payload, retirement, restoration_id, *,
                        expected_cluster_directory, database_budget, guard_factory, progress, validation_follows=False,
-                       in_place=False, home=None, read=None):
+                       in_place=False, home=None, read=None, allow_unprotected_media=False):
     home = target_directory if home is None else home
     marker = target_directory / 'LIBRARY-RESTORE-INCOMPLETE'
     if not in_place:
@@ -302,7 +302,7 @@ def _restore_contents(directory, key, target_directory, admin, pg_restore, paylo
                                 progress=progress, authenticated=expected)
     equivalent_inventories(expected, inventory / 'inventory.sqlite3')
     copy_media_tree(source, inventory, home / 'media-copy', offline_confirmed=True,
-                    guard_factory=guard_factory, progress=progress)
+                    guard_factory=guard_factory, progress=progress, allow_unprotected=allow_unprotected_media)
     if validation_follows:
         if verify_library_metadata(directory, key) != payload:
             raise InvalidArtifact('Backup changed during recovery')
