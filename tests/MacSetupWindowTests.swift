@@ -97,7 +97,7 @@ struct WindowTests {
         assert(args.contains("--password-stdin") && !args.contains(setup.a.password))
         setup.a.restore = true
         setup.checking = false
-        assert(setup.a.stopped && setup.a.acceptDisk)
+        assert(!setup.a.stopped && !setup.a.acceptDisk)
         assert(!setup.ready)
         setup.a.backupPassword = "fixture administrator password"
         setup.passwordValid = true
@@ -108,7 +108,9 @@ struct WindowTests {
         assert(frame.prefix(4).reduce(0) { ($0 << 8) | Int($1) } == frame.count - 4)
         let decoded = try! JSONSerialization.jsonObject(with: frame.dropFirst(4)) as! [String: String]
         assert(decoded["password"] == setup.a.backupPassword)
-        assert(setup.ready)
+        assert(!setup.ready && setup.validationIssues.contains { $0.hasPrefix("Stop FamilyFoto on the old computer") })
+        setup.a.stopped = true
+        assert(setup.ready && !setup.a.arguments().contains("--allow-unprotected-media"))
         setup.a.stopped = false
         assert(!setup.ready)
         setup.a.stopped = true
@@ -118,11 +120,16 @@ struct WindowTests {
         setup.a.terms = true
         assert(setup.ready && setup.a.arguments().contains("--research-only"))
         setup.errors = ["unprotected": "exFAT"]
-        assert(setup.ready)
-        setup.a.acceptDisk = false
-        assert(!setup.ready)
+        assert(!setup.ready && setup.validationIssues.contains("exFAT"))
         setup.a.acceptDisk = true
         assert(setup.ready && setup.a.arguments().contains("--allow-unprotected-media"))
+        // Choosing another library location withdraws the acceptance.
+        setup.selectPath("/Volumes/Other Disk", for: \.parent)
+        assert(!setup.a.acceptDisk && !setup.a.arguments().contains("--allow-unprotected-media"))
+        setup.checking = false
+        setup.errors = ["unprotected": "exFAT"]
+        assert(!setup.ready)
+        setup.a.acceptDisk = true
         setup.errors = ["password": "Incorrect password."]
         assert(!setup.ready && setup.validationIssues.contains("Incorrect password."))
         setup.checking = true
@@ -193,6 +200,20 @@ struct WindowTests {
         assert(setup.a.backupPassword.isEmpty && !setup.passwordValid)
         setup.retry()
         assert(setup.page == .questions && !setup.ready)
+        // Reopened after a quit or reboot: the recorded confirmation stands, so the password alone enables Start.
+        let resumeRoot = FileManager.default.temporaryDirectory.appendingPathComponent("setup-resume-\(UUID().uuidString)")
+        try! FileManager.default.createDirectory(at: resumeRoot, withIntermediateDirectories: true)
+        let recorded = ["restore", "--web-port", "4341", "--backup", "/tmp/backup", "--backup-password-frame-stdin",
+                        "--media", "copy", "--media-folder", "/tmp/FFLibrary", "--old-library-stopped"]
+        try! JSONEncoder().encode(recorded).write(to: resumeRoot.appendingPathComponent(".macos-setup.json"))
+        let reopened = Setup(root: resumeRoot, restore: false, resumeCheck: { _ in ["needsPassword": "true"] })
+        reopened.load()
+        assert(reopened.resumed && reopened.page == .questions && reopened.a.restore && reopened.a.stopped)
+        assert(!reopened.ready)
+        reopened.a.backupPassword = "fixture administrator password"
+        reopened.passwordValid = true
+        assert(reopened.ready && reopened.validationIssues.isEmpty)
+        try? FileManager.default.removeItem(at: resumeRoot)
         setup.finish(3, "Wrong password")
         assert(setup.code == 3 && setup.message.contains("enter its administrator password"))
         setup.finish(4, "")
