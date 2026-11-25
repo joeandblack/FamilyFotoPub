@@ -100,7 +100,7 @@ def write_windows_handover(backup, receipt_path=None):
         'To preselect it, run the downloaded launcher with --backup followed by\n'
         'the quoted full path to this backup folder. Do not start a new library.\n\n'
         'Resume an interrupted restore from its installation folder:\n'
-        'powershell.exe -File installer\\windows\\install.ps1 -Mode Restore\n'
+        'powershell.exe -ExecutionPolicy Bypass -File installer\\windows\\install.ps1 -Mode Restore\n'
         'Keep the backup until the restored library has been checked.\n'
     ).encode('utf-8')
     folder = Path(backup) / FOLDER
