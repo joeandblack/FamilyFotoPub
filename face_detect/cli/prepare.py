@@ -43,11 +43,16 @@ def prepare(port=None):
                 raise ValueError('This library has People data from before the one catalog; run the catalog migration first')
             catalog.create(db)
         else:
-            from face_detect.catalog.spaces import active_space
+            from face_detect.catalog.spaces import active_space,register_space
             db.execute("SELECT set_config('search_path', %s, true)",(catalog.search_path(),))
             active=active_space(db)
             if active is not None and active!=provider.space_id:
                 raise ValueError('This library\'s People catalog uses another face model; install that model, or switch models separately')
+            if active is None:
+                # A catalog with no active model has no faces yet: a library backed up before
+                # its first scan. Record this computer's model now, as that scan would before
+                # writing. Until then a recovered library can neither start a scan nor edit People.
+                register_space(db,provider)
     value={'schema':catalog.SCHEMA,'profile':profile,'model_id':provider.identity,'space_id':provider.space_id,
            'media_ids':[],'review_imports':[]}
     path=root/'runtime.json'
