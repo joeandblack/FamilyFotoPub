@@ -283,6 +283,20 @@ def test_a_split_restore_puts_media_on_the_ssd_and_the_rest_on_a_protected_disk(
         run(base / 'another', in_place=True, media_directory=exfat_ssd / 'other')
 
 
+def test_a_copy_restore_puts_media_on_an_accepted_exfat_disk(library, exfat_ssd):
+    """The acceptance reaches the copy itself, not only the early folder check."""
+    from app.backup.private_storage import UnprotectedDestination
+    backup, key, base, run = library
+    media = exfat_ssd / 'library'
+    with pytest.raises(UnprotectedDestination):
+        run(base / 'refused', media_directory=media)
+    assert not media.exists()
+    report = run(base / 'recovered', media_directory=media, allow_unprotected_media=True)
+    assert report['media_in_place'] is False and report['media_root'] == str(media / 'media-copy/media')
+    assert (media / 'media-copy/media/trip/photo.jpg').read_bytes() == PHOTO
+    assert (backup / 'media-copy/media/trip/photo.jpg').read_bytes() == PHOTO
+
+
 def test_a_split_media_folder_must_be_on_the_backups_disk(library, monkeypatch, tmp_path):
     backup, _, base, run = library
     (tmp_path / 'elsewhere').mkdir()
