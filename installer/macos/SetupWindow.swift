@@ -11,7 +11,8 @@ private let stages = [
 ]
 
 struct Answers: Equatable {
-    var restore = false, copy = true, people = false, terms = false, stopped = true, acceptDisk = true
+    // The switch confirmation and the unprotected-disk acceptance are the owner's own choices: never preset.
+    var restore = false, copy = true, people = false, terms = false, stopped = false, acceptDisk = false
     var backup = "", backupPassword = "", parent = "", password = "", repeatPassword = ""
     var database = "5433", web = "4341", peoplePort = "54341", instance = ""
 
@@ -87,6 +88,10 @@ final class Setup: ObservableObject {
                 passwordRevision += 1
                 passwordValid = false
                 passwordError = ""
+            }
+            if a.parent != oldValue.parent || a.backup != oldValue.backup || a.copy != oldValue.copy || a.restore != oldValue.restore {
+                // An acceptance covers only the disk it was given for.
+                a.acceptDisk = false
             }
             if page == .questions && !resumed && !mediaParentSelected && a.restore {
                 let defaultParent = Setup.defaultParent(a.backup)
