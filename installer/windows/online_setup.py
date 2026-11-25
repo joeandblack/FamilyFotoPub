@@ -46,7 +46,7 @@ def main():
         if cancel.exists():
             return
         choices = json.loads(choice_file.read_text(encoding='utf-8-sig'))
-        subprocess.run([str(shell), '-NoProfile', '-File',
+        subprocess.run([str(shell), '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
                         str(engine / 'installer/windows/provision-prepared.ps1'),
                         '-Root', str(plain_path(choices['root'])),
                         '-Receipt', str((a.attempt / 'prepared.json').absolute()), '-Elevate',
