@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import sqlite3
 import shutil
+import stat
 
 from .media_copy import abandoned_claim, copy_lock, copy_media_file, publish_no_clobber, sync_directory
 from .media_inventory import (hash_file, matched_once, recorded_name, resolved_path, signature, verify_media_inventory,
@@ -27,18 +28,63 @@ def file_digest(path):
         return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
-def verify_tree(db, tree, *, content=True, progress=None):
+def _digest(lines):
+    return hashlib.sha256('\n'.join(sorted(lines)).encode('utf-8')).hexdigest()
+
+
+def _bound(stored, info):
+    return f'{stored}\0{info.st_dev}\0{info.st_ino}\0{info.st_size}\0{info.st_mtime_ns}'
+
+
+def hash_in_order(db, tree, progress=None):
+    """Read every inventory file in path order and check it against its recorded digest.
+
+    Copies write files in path order, so on a hard disk this order reads the tree mostly
+    front to back; a directory walk lists entries in the file system's own order (hash
+    order on APFS) and seeks between files. This pass only proves that each listed file
+    exists with the right content. It returns a digest of the files it read (name, device,
+    inode, size, modification time) that `verify_tree(..., hashed=...)` must match, which
+    is what rules out extra entries and files replaced after they were read.
+    """
+    total_files, total_bytes = db.execute(
+        "SELECT count(*),coalesce(sum(size),0) FROM entries WHERE kind='file'").fetchone()
+    files = checked_bytes = 0
+    listings, read = {}, []
+    for name, size, digest in db.execute("SELECT path,size,sha256 FROM entries WHERE kind='file' ORDER BY path"):
+        path = resolved_path(tree, name, listings)
+        try:
+            info = path.lstat()
+        except FileNotFoundError:
+            raise InvalidMediaInventory('Copied media tree is incomplete') from None
+        if not stat.S_ISREG(info.st_mode) or info.st_size != size or hash_file(path, signature(info)) != digest:
+            raise InvalidMediaInventory('Copied media failed content verification')
+        read.append(_bound(name, info))
+        files += 1
+        checked_bytes += size
+        if progress:
+            progress({'phase': 'verify', 'files': files, 'total_files': total_files,
+                      'bytes': checked_bytes, 'total_bytes': total_bytes})
+    return _digest(read)
+
+
+def verify_tree(db, tree, *, content=True, progress=None, hashed=None):
     """Reconcile the tree with its inventory. `content=False` checks names and sizes only.
+
+    With `content=True` every file is first read in path order (`hash_in_order`), then the
+    tree is walked without reading content. `hashed` is a `hash_in_order` result to bind a
+    walk to, for a caller that ran the content pass itself.
 
     Returns a digest of every file's name, size and modification time, in no particular
     order. A later walk that gets the same digest has found no file added, removed,
     resized or rewritten since. It says nothing about content on its own.
     """
-    total_files, total_bytes = db.execute(
-        "SELECT count(*),coalesce(sum(size),0) FROM entries WHERE kind='file'").fetchone()
-    count = files = checked_bytes = 0
+    if content:
+        if hashed is not None:
+            raise ValueError('Pass content=False with a hashed digest')
+        hashed = hash_in_order(db, tree, progress)
+    count = 0
     twins = set()
-    seen = []
+    seen, walked = [], []
     for name, kind, info in walk(tree):
         stored = recorded_name(db, name)
         row = None if stored is None else db.execute(
@@ -50,19 +96,16 @@ def verify_tree(db, tree, *, content=True, progress=None):
             raise InvalidMediaInventory('Unexpected entry in copied media tree')
         matched_once(twins, stored)
         if kind == 'file':
-            if info.st_size != row[1] or (content and hash_file(tree / name, signature(info)) != row[2]):
+            if info.st_size != row[1]:
                 raise InvalidMediaInventory('Copied media failed content verification')
-            files += 1
-            checked_bytes += info.st_size
             seen.append(f'{stored}\0{info.st_size}\0{info.st_mtime_ns}')
-            if progress and content:
-                progress({'phase': 'verify', 'files': files, 'total_files': total_files,
-                          'bytes': checked_bytes, 'total_bytes': total_bytes})
+            walked.append(_bound(stored, info))
         count += 1
     if count != db.execute('SELECT count(*) FROM entries').fetchone()[0]:
         raise InvalidMediaInventory('Copied media tree is incomplete')
-    seen.sort()
-    return hashlib.sha256('\n'.join(seen).encode('utf-8')).hexdigest()
+    if hashed is not None and _digest(walked) != hashed:
+        raise InvalidMediaInventory('Copied media changed during verification')
+    return _digest(seen)
 
 
 def remove_finished_job(job):

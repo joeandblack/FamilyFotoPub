@@ -12,7 +12,7 @@ import time
 from app.backup.media_copy import copy_lock, sync_directory
 from app.backup.media_inventory import (InvalidMediaInventory, portable_path, recorded_volume,
                                       resolved_path)
-from app.backup.media_tree import file_digest, verify_tree
+from app.backup.media_tree import file_digest, hash_in_order, verify_tree
 from app.backup.private_storage import create_private_directory, check_destination_privacy
 from app.backup.recovery import save_private
 from app.backup.space import Requirement, SpaceGuard, directory_identity
@@ -257,6 +257,7 @@ def copy_media_tree(source, inventory, target, *, offline_confirmed=False,
                 with _timed_phase(progress, 'media-verification', summary,
                                   verification='full') as report:
                     checked = checked_bytes = 0
+                    hashed = None
                     if cancelled():
                         raise InterruptedError('Verification cancelled')
                     flush_device(snapshot / 'inventory.sqlite3')
@@ -274,9 +275,11 @@ def copy_media_tree(source, inventory, target, *, offline_confirmed=False,
                             if cancelled():
                                 raise InterruptedError('Verification cancelled')
                             report(event)
-                        verify_tree(db, tree, content=True, progress=checked_progress)
+                        # Path order is the copy's write order; the final check's walk
+                        # binds what was read to the tree and rules out extra entries.
+                        hashed = hash_in_order(db, tree, progress=checked_progress)
                 with _timed_phase(progress, 'media-final-check', summary) as report:
-                    verify_tree(db, tree, content=False)
+                    verify_tree(db, tree, content=False, hashed=hashed)
                     if (file_digest(inventory / 'inventory.sqlite3') != inventory_hash
                             or volume_identity(source) != source_volume or volume_identity(target) != target_volume):
                         raise ValueError('Inventory or volume changed before completion')
