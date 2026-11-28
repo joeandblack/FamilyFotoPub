@@ -99,7 +99,8 @@ def verify_tree(db, tree, *, content=True, progress=None, hashed=None):
             if info.st_size != row[1]:
                 raise InvalidMediaInventory('Copied media failed content verification')
             seen.append(f'{stored}\0{info.st_size}\0{info.st_mtime_ns}')
-            walked.append(_bound(stored, info))
+            if hashed is not None:
+                walked.append(_bound(stored, info))
         count += 1
     if count != db.execute('SELECT count(*) FROM entries').fetchone()[0]:
         raise InvalidMediaInventory('Copied media tree is incomplete')
